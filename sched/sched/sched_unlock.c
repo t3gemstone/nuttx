@@ -24,6 +24,7 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/compiler.h>
 #include <nuttx/config.h>
 
 #include <assert.h>
@@ -89,7 +90,9 @@ void sched_unlock(void)
             {
               if (nxsched_merge_pending())
                 {
-                  up_switch_context(this_task(), rtcb);
+                  struct tcb_s *task = this_task();
+                  up_switch_context(task, rtcb);
+                  UNUSED(task);
                 }
             }
 

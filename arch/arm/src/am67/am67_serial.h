@@ -32,24 +32,24 @@
 #include <nuttx/config.h>
 #include <arch/board/board.h>
 
+#include "hardware/am67_uart.h"
+#include <nuttx/serial/uart_16550.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-/****************************************************************************
- * Public Types
- ****************************************************************************/
+/* IRQ for AM67 UART */
+/* Page 1150(MAIN) - 1182(R5F) in Techincal Reference Manual document for AM67 */
 
-/****************************************************************************
- * Public Data
- ****************************************************************************/
+#define AM67_UART0_IRQ       210         /* AM67 UART0 IRQ */
+#define AM67_UART1_IRQ       211         /* AM67 UART1 IRQ */
+#define AM67_UART2_IRQ       212         /* AM67 UART2 IRQ */
+#define AM67_UART3_IRQ       213         /* AM67 UART3 IRQ */
+#define AM67_UART4_IRQ       214         /* AM67 UART4 IRQ */
+#define AM67_UART5_IRQ       215         /* AM67 UART5 IRQ */
+#define AM67_UART6_IRQ       216         /* AM67 UART6 IRQ */
 
-/****************************************************************************
- * Inline Functions
- ****************************************************************************/
-
-/****************************************************************************
- * Public Functions Prototypes
- ****************************************************************************/
+#undef USE_SERIALDRIVER
 
 #endif /* __ARCH_ARM_SRC_AM67_AM67_SERIAL_H */

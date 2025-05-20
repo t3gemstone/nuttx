@@ -521,6 +521,10 @@ static void idle_group_initialize(void)
  *
  ****************************************************************************/
 
+
+  
+
+
 void nx_start(void)
 {
   int i;
@@ -532,12 +536,16 @@ void nx_start(void)
   g_nx_initstate = OSINIT_BOOT;
 
   /* Initialize task list table *********************************************/
+  size_t c = 0;
+  c = dq_count(list_pendingtasks());
 
   tasklist_initialize();
+  c = dq_count(list_pendingtasks());
 
   /* Initialize the IDLE task TCB *******************************************/
 
   idle_task_initialize();
+  c = dq_count(list_pendingtasks());
 
   /* Task lists are initialized */
 
@@ -691,6 +699,7 @@ void nx_start(void)
    */
 
   up_initialize();
+  c = dq_count(list_pendingtasks());
 
   /* Initialize common drivers */
 
@@ -757,8 +766,11 @@ void nx_start(void)
   g_nx_initstate = OSINIT_OSREADY;
 
   /* Create initial tasks and bring-up the system */
-
+  c = dq_count(list_pendingtasks());
   DEBUGVERIFY(nx_bringup());
+  c = dq_count(list_pendingtasks());
+  dq_entry_t *head = list_pendingtasks()->head;
+  struct tcb_s *task = this_task();
 
   /* Enter to idleloop */
 
@@ -767,6 +779,7 @@ void nx_start(void)
   /* Let other threads have access to the memory manager */
 
   sched_trace_end();
+  /* TODO(EMRE): remove the comment */
   sched_unlock();
 
   /* The IDLE Loop **********************************************************/
@@ -780,6 +793,8 @@ void nx_start(void)
       /* Perform any processor-specific idle state operations */
 
       up_idle();
+        c = dq_count(list_pendingtasks());
+
     }
 #endif
 }

@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/include/am67/chip.h
+ * arch/arm/src/am67/hardware/am67_uart.h
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,37 +20,36 @@
  *
  ****************************************************************************/
 
-#ifndef __ARCH_ARM_INCLUDE_AM67_CHIP_H
-#define __ARCH_ARM_INCLUDE_AM67_CHIP_H
+#ifndef __ARCH_ARM_SRC_AM67_HARDWARE_AM67_UART_H
+#define __ARCH_ARM_SRC_AM67_HARDWARE_AM67_UART_H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include <nuttx/config.h>
+
+#include "am67_memmap.h"
 
 /****************************************************************************
- * Pre-processor Prototypes
- ****************************************************************************/
-#define KB(x) ((x) << 10)
-#define MB(x) (KB(x) << 10)
-#define GB(x) (MB(UINT64_C(x)) << 10)
-
-#define CONFIG_RAMBANK1_ADDR (0x80000000)
-#define CONFIG_RAMBANK1_SIZE GB(2)
-
-#define CONFIG_LOAD_BASE 0x0079100000
-
-#undef USE_ARCH_ATOMIC
-/****************************************************************************
- * Public Types
+ * Pre-processor Definitions 
  ****************************************************************************/
 
-/****************************************************************************
- * Public Data
- ****************************************************************************/
+#define AM67_MCU_UART0_BASE MCU_UART0
 
-/****************************************************************************
- * Public Functions Prototypes
- ****************************************************************************/
 
-#endif /* __ARCH_ARM_INCLUDE_AM67_CHIP_H */
+/* UART register offsets */
+
+#define AM67_UART_DLL_OFFSET 0x00 /* Divisor Latches Low Register */
+#define AM67_UART_RHR_OFFSET 0x00 /* Receive  Holding Register */
+#define AM67_UART_THR_OFFSET 0x00 /* Transmit Holding Register */
+#define AM67_UART_DATA_BUFFER_OFFSET 0x00 /* [0:7] bits are for data */
+#define AM67_UART_DLH_OFFSET 0x04
+#define AM67_UART_IER_OFFSET 0x04 /* Interrupt Enable Register */
+#define AM67_UART_LCR_OFFSET 0x0C
+
+/* ECR - Enhanced control register 
+ * Bit 4: Enable TX, 1 EN, 0 DIS
+ * Bit 3: Enable RX, 1 EN, 0 DIS
+ */
+#define AM67_UART_ECR_OFFSET 0x90 
+
+#endif /* __ARCH_ARM_SRC_AM67_HARDWARE_AM67_UART_H */

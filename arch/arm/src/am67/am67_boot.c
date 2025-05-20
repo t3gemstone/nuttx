@@ -31,16 +31,19 @@
 #include <debug.h>
 
 #include <nuttx/cache.h>
+#include <nuttx/init.h>
 
 #include <arch/board/board.h>
 
 #include "chip.h"
 #include "arm.h"
 #include "arm_internal.h"
-//#include "am67_lowputc.h"
 #include "am67_boot.h"
 
 #include "am67_rsc.h"
+#include "am67_gpio.h"
+#include "pinmux.h"
+#include "addr_translate.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -54,9 +57,9 @@
  * Public Functions
  ****************************************************************************/
 
+
 void am67_board_initialize(void)
 {
-
 }
 
 
@@ -64,6 +67,28 @@ void am67_memory_initialize(void)
 {
 
 }
+
+void Reset_Handler(void) {
+    // Perform reset-related initialization and jump to main()
+}
+
+void NMI_Handler(void) {
+    // Handle the NMI exception
+}
+
+void HardFault_Handler(void) {
+    // Handle the hard fault exception
+}
+
+uint32_t _estack;
+
+__attribute__((section(".vectors"))) const void *g_pfnVectors[] = {
+    (void *)&_estack,        // The initial stack pointer
+    (void *)Reset_Handler,   // The reset handler
+    (void *)NMI_Handler,     // The NMI handler
+    (void *)HardFault_Handler, // The hard fault handler
+    // Add other exception and interrupt handlers here
+};
 
 /****************************************************************************
  * Name: arm_boot
@@ -82,10 +107,13 @@ void am67_memory_initialize(void)
  *
  ****************************************************************************/
 
+
+
 void arm_boot(void)
 {
   /* Initialize the FPU */
 
+  
   arm_fpuconfig();
 
   /* Disable CPU Watchdog */
@@ -107,4 +135,6 @@ void arm_boot(void)
    */
 
   am67_board_initialize();
+  //blink_internal_led_demo();  
+  nx_start();
 }

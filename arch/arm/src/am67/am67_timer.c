@@ -1,7 +1,5 @@
 /****************************************************************************
- * arch/arm/include/am67/chip.h
- *
- * SPDX-License-Identifier: Apache-2.0
+ * arch/arm/src/am67/am67_timer.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,37 +18,18 @@
  *
  ****************************************************************************/
 
-#ifndef __ARCH_ARM_INCLUDE_AM67_CHIP_H
-#define __ARCH_ARM_INCLUDE_AM67_CHIP_H
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include <nuttx/config.h>
+
+#include <nuttx/timers/arch_alarm.h>
+
+#include "arm_internal.h"
 
 /****************************************************************************
- * Pre-processor Prototypes
+ * Public Functions
  ****************************************************************************/
-#define KB(x) ((x) << 10)
-#define MB(x) (KB(x) << 10)
-#define GB(x) (MB(UINT64_C(x)) << 10)
+void up_timer_initialize(void)
+{
 
-#define CONFIG_RAMBANK1_ADDR (0x80000000)
-#define CONFIG_RAMBANK1_SIZE GB(2)
-
-#define CONFIG_LOAD_BASE 0x0079100000
-
-#undef USE_ARCH_ATOMIC
-/****************************************************************************
- * Public Types
- ****************************************************************************/
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
-
-/****************************************************************************
- * Public Functions Prototypes
- ****************************************************************************/
-
-#endif /* __ARCH_ARM_INCLUDE_AM67_CHIP_H */
+}

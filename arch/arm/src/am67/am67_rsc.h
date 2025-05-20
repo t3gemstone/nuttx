@@ -41,7 +41,7 @@
 
 /* TODO: Get these values from config */
 /* Define memory regions (adjust based on AM67A/J722S memory map) */
-#define SHARED_MEM_BASE 0xA0000000  /* Example: Shared DDR region */
+#define SHARED_MEM_BASE 0xA2200000  /* Example: Shared DDR region */
 #define SHARED_MEM_SIZE 0x00100000  /* 1MB for Virtio rings and buffers */
 
 /* Virtio device structure */

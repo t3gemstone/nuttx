@@ -104,8 +104,9 @@ int posix_spawnattr_init(posix_spawnattr_t *attr)
 
   attr->stacksize           = CONFIG_POSIX_SPAWN_DEFAULT_STACKSIZE;
 
+/* TODO(EMRE): Remove comment */
 #ifndef CONFIG_BUILD_KERNEL
-  attr->stackaddr           = NULL;
+  //attr->stackaddr           = NULL;
 #endif
 
   return OK;

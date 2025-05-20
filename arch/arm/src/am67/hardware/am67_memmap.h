@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/include/am67/chip.h
+ * arch/arm/src/am67/hardware/am67_memmap.h
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,37 +20,25 @@
  *
  ****************************************************************************/
 
-#ifndef __ARCH_ARM_INCLUDE_AM67_CHIP_H
-#define __ARCH_ARM_INCLUDE_AM67_CHIP_H
+#ifndef __ARCH_ARM_SRC_AM67_HARDWARE_AM67_MEMMAP_H
+#define __ARCH_ARM_SRC_AM67_HARDWARE_AM67_MEMMAP_H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include <nuttx/config.h>
 
 /****************************************************************************
- * Pre-processor Prototypes
+ * Pre-processor Definitions 
  ****************************************************************************/
-#define KB(x) ((x) << 10)
-#define MB(x) (KB(x) << 10)
-#define GB(x) (MB(UINT64_C(x)) << 10)
 
-#define CONFIG_RAMBANK1_ADDR (0x80000000)
-#define CONFIG_RAMBANK1_SIZE GB(2)
+#define MCU_GPIO0  0x04201000
+#define MAIN_GPIO0 0x00600000
 
-#define CONFIG_LOAD_BASE 0x0079100000
+#define MCU_UART0 0x0004A00000
 
-#undef USE_ARCH_ATOMIC
-/****************************************************************************
- * Public Types
- ****************************************************************************/
 
 /****************************************************************************
- * Public Data
+ * Public Function Prototypes
  ****************************************************************************/
 
-/****************************************************************************
- * Public Functions Prototypes
- ****************************************************************************/
-
-#endif /* __ARCH_ARM_INCLUDE_AM67_CHIP_H */
+#endif /* __ARCH_ARM_SRC_AM67_HARDWARE_AM67_MEMMAP_H */

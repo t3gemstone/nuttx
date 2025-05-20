@@ -73,7 +73,7 @@ extern "C++"
 #  define __ATOMIC_ACQ_REL 4
 #  define __ATOMIC_SEQ_CST 5
 
-#  define USE_ARCH_ATOMIC  1
+#  define USE_ARCH_ATOMIC  0
 
 #  define ATOMIC_FUNC(f, n) nx_atomic_##f##_##n
 

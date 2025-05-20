@@ -91,7 +91,9 @@ bool nxsched_merge_pending(void)
 
   if (!nxsched_islocked_tcb(rtcb))
     {
-      for (ptcb = (FAR struct tcb_s *)list_pendingtasks()->head;
+      dq_queue_t *pending_tasks = list_pendingtasks();
+      struct tcb_s *pt_head = (FAR struct tcb_s *)pending_tasks->head;
+      for (ptcb = pt_head;
            ptcb;
            ptcb = pnext)
         {

@@ -89,6 +89,8 @@ config ARCH_CHIP_AM67
   bool "TI AM67"
   select ARCH_CORTEXR5
 	select ARCH_HAVE_LOWVECTORS
+  select ARCH_HAVE_MMU
+  select ARCH_USE_MMU
 	select ARCH_HAVE_SDRAM
 	depends on BOOT_RUNFROMSDRAM
 	select ARCH_HAVE_ADDRENV
