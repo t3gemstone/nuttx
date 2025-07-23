@@ -40,4 +40,13 @@
 #define ARMV7A_DCACHE_LINESIZE 32  /* 32 bytes (8 words) */
 #define ARMV7A_ICACHE_LINESIZE 32  /* 32 bytes (8 words) */
 
+#define CSL_REG32_WR(p, v)      (CSL_REG32_WR_RAW((volatile uint32_t *)(p), (uint32_t)(v)))
+                                    
+static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v);
+static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v)
+{
+    *p = v;
+    return;
+}
+
 #endif /* __ARCH_ARM_SRC_AM67_CHIP_H */

@@ -4,7 +4,7 @@ config ARCH_CORTEXR5
 	bool "Cortex-R5"
 	select ARCH_ARMV7R
 	select ARCH_HAVE_MPU
-	select ARCH_HAVE_FPU
+	#select ARCH_HAVE_FPU
 	default y
 
 endif # ARCH_CHIP_AM67

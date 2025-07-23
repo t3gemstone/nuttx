@@ -43,6 +43,97 @@
  *
  ****************************************************************************/
 
+
 void up_timer_initialize(void)
 {
 }
+
+void timer_start(uint32_t base_addr)
+{
+    volatile uint32_t *addr = (uint32_t *)(base_addr + TIMER_TCLR_OFFSET);
+
+    // Stop
+    *addr |= (0x1U << 0);
+
+}
+
+void timer_stop(uint32_t base_addr)
+{
+    volatile uint32_t *addr = (volatile uint32_t *)(base_addr + TIMER_TCLR_OFFSET);
+
+    // Start
+    *addr &= ~(0x1U << 0);
+}
+
+uint32_t get_count(uint32_t base_addr)
+{
+    volatile uint32_t *addr = (volatile uint32_t *)(base_addr + TIMER_TCRR_OFFSET);
+    return *addr;
+}
+
+uint32_t get_reload(uint32_t base_addr)
+{
+    volatile uint32_t *addr = (volatile uint32_t *)(base_addr + TIMER_TLDR_OFFSET);
+    return *addr;
+}
+
+void timer_setup(uint32_t base_addr, struct timer *params)
+{
+    volatile uint32_t *addr;
+    uint32_t clock_hz, reload_value, ctrl_value, count_value, cycles;
+
+    timer_stop(base_addr);
+
+    clock_hz = params-> clock_hz / params->prescaler;
+    cycles = clock_hz / 1000000U;
+
+    count_value = 0xFFFFFFFFu - (uint32_t)cycles - 1U;
+
+    reload_value = 0;
+    ctrl_value = 0;
+
+    if (params->one_shot == 0U)     // Autoreload
+    {
+        ctrl_value |= (0x1U << 1);
+        reload_value = count_value;
+    }
+
+    // Set the timer control
+    addr = (volatile uint32_t *)(base_addr + TIMER_TCLR_OFFSET);
+    *addr = ctrl_value;
+
+    // Set the timer count
+    addr = (volatile uint32_t *)(base_addr + TIMER_TCRR_OFFSET);
+    *addr = count_value;
+
+    // Set the reload
+    addr = (volatile uint32_t *)(base_addr + TIMER_TLDR_OFFSET);
+    *addr = reload_value;
+
+    // Some interrupt related settings can be done here
+    // Refer to enableOverflowInt()
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

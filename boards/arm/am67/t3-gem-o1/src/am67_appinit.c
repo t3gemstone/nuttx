@@ -64,7 +64,7 @@ int board_app_initialize(uintptr_t arg)
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
   /* Board initialization already performed by board_late_initialize() */
 
-  return OK;
+  return 0; //return OK;
 #else
   /* Perform board-specific initialization */
 

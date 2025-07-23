@@ -32,6 +32,7 @@
 
 #include "t3-gem-o1.h"
 
+
 int am67_bringup(void)
 {
   int ret = OK;

@@ -37,7 +37,13 @@
 #include "arm.h"
 #include "arm_internal.h"
 
-//#include "am67_boot.h"	I hope it is not needed
+#include "am67_boot.h"
+#include "am67_gpio.h"
+#include "am67_uart.h"
+#include "am67_clockconfig.h"
+#include "am67_pinmux.h"
+#include "am67_lowput.h"
+#include "am67_serial.h"
 
 /****************************************************************************
  * Public Functions
@@ -72,29 +78,27 @@ void arm_boot(void)
 {
     /* Initialize clocking to settings provided by board-specific logic */
 
-    //am67_clockconfig();         // TODO: NOT IMPLEMENTED YET
+    clock_init();
+    
+    //pinmux_init();
 
     /* Initialize CPU RAM. */
 
     //am67_memory_initialize();   // TODO: "
 
-    /* Initialize the FPU */
-
-    //arm_fpu_config();           // TODO: "
     //arm_data_initialize();      // TODO: "
-
-    /* Perform common, low-level chip initialization (might do nothing) */
-
-    //am67_lowsetup();            // TODO: "
-
-    /* Perform board-specific initialization,  This must include:
-   *
-   * - Initialization of board-specific memory resources (e.g., SDRAM)
-   * - Configuration of board specific resources (GIOs, LEDs, etc).
-   *
-   */
+    
+    am67_lowsetup();
+    
+    arm_earlyserialinit();
 
     //am67_board_initialize();    // TODO: "
+    
+    
+    //gpio_config();
+    //uart_init();
+
+    //nsh_initialize();
 
      /* Then start NuttX */
 

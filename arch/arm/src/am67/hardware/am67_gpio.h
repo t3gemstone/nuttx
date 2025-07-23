@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/src/am67/am67_lowputc.h
+ * arch/arm/src/am67/hardware/am67_gpio.h
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -19,49 +19,19 @@
  * under the License.
  *
  ****************************************************************************/
- 
-#ifndef __ARCH_ARM_SRC_AM67_AM67_LOWPUTC_H
-#define __ARCH_ARM_SRC_AM67_AM67_LOWPUTC_H
+
+#ifndef __ARCH_ARM_SRC_AM67_HARDWARE_AM67_GPIO_H
+#define __ARCH_ARM_SRC_AM67_HARDWARE_AM67_GPIO_H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
- 
+
 #include <nuttx/config.h>
+#include "hardware/am67_memorymap.h"
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
- 
-#define CONSOLE_BASE	UART0_BASE
-#define CONSOLE_BAUD	115200
-#define CONSOLE_BITS	8
-#define CONSOLE_PARITY	0
-#define CONSOLE_2STOP	0
 
-/****************************************************************************
- * Public Types
- ****************************************************************************/
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
- 
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-/****************************************************************************
- * Name: am335x_lowsetup
- *
- * Description:
- *   Called at the very beginning of _start.  Performs low level
- *   initialization including setup of the console UART.  This UART done
- *   early so that the serial console is available for debugging very early
- *   in the boot sequence.
- *
- ****************************************************************************/
-
-void am67_lowsetup(void);
-
-#endif /* __ARCH_ARM_SRC_AM67_AM67_LOWPUTC_H */
+#define GPIO0                   0

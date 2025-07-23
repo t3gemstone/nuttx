@@ -37,6 +37,48 @@
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: am67_memory_initialize
+ *
+ * Description:
+ *   All AM67 architectures must provide the following entry point.  This
+ *   entry point is called early in the initialization before memory has
+ *   been configured.  This board-specific function is responsible for
+ *   configuring any on-board memories.
+ *
+ *   Logic in am67_memory_initialize must be careful to avoid using any
+ *   global variables because those will be uninitialized at the time this
+ *   function is called.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+void am67_memory_initialize(void)
+{
+  /* SDRAM was initialized by a bootloader in the supported configurations. */
+}
+
+/****************************************************************************
+ * Name: am67_board_initialize
+ *
+ * Description:
+ *   All AM67 architectures must provide the following entry point.
+ *   This entry point is called early in the initialization -- after all
+ *   memory has been configured and mapped but before any devices have been
+ *   initialized.
+ *
+ ****************************************************************************/
+
+void am67_board_initialize(void)
+{
+    arm_serialinit();
+}
+
+/****************************************************************************
  * Name: board_late_initialize
  *
  * Description:
@@ -50,10 +92,10 @@
  ****************************************************************************/
 
 #ifdef CONFIG_BOARD_LATE_INITIALIZE
-void board_late_initialize(void)
+void am67_board_late_initialize(void)
 {
   /* Perform board-specific initialization */
 
-  am67_bringup();
+  //am67_bringup();
 }
 #endif /* CONFIG_BOARD_LATE_INITIALIZE */
