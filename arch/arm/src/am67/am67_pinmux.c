@@ -88,7 +88,7 @@ void pinmux_unlock(void)    // Unlock to be able to modify pinmux settings
 
 void pinmux_lock(void)
 {
-    // I guess some SoCs does not need that,
+    // I guess some SoCs do not need that,
     // implement later if needed.
 }
 

@@ -78,7 +78,7 @@ void arm_boot(void)
 {
     /* Initialize clocking to settings provided by board-specific logic */
 
-    clock_init();
+    //clock_init();
     
     //pinmux_init();
 
@@ -88,18 +88,12 @@ void arm_boot(void)
 
     //arm_data_initialize();      // TODO: "
     
-    am67_lowsetup();
+    //am67_lowsetup();
     
-    arm_earlyserialinit();
+    //arm_earlyserialinit();
 
     //am67_board_initialize();    // TODO: "
     
-    
-    //gpio_config();
-    //uart_init();
-
-    //nsh_initialize();
-
      /* Then start NuttX */
 
     nx_start();

@@ -52,7 +52,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: am335x_lowsetup
+ * Name: am67_lowsetup
  *
  * Description:
  *   Called at the very beginning of _start.  Performs low level

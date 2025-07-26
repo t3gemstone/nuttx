@@ -37,8 +37,6 @@
  * Private Functions
  ****************************************************************************/
 
-#define MCU_PLLCTRL0	0x0004020000
-
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -52,8 +50,8 @@ void clock_unlock(void)
     uint32_t base_addr;
     volatile uint32_t *kick_addr;
 
-    base_addr = CSL_MCU_CTRL_MMR0_CFG0_BASE;
-    kick_addr = (volatile uint32_t *)(base_addr + CSL_MCU_CTRL_MMR_LOCKn_KICK0_OFFSET(2));
+    base_addr = CSL_CTRL_MMR0_CFG0_BASE;
+    kick_addr = (volatile uint32_t *)(base_addr + CSL_MAIN_CTRL_MMR_LOCKn_KICK0_OFFSET(2));
     CSL_REG32_WR(kick_addr, KICK0_UNLOCK_VAL);
     kick_addr++;
     CSL_REG32_WR(kick_addr, KICK1_UNLOCK_VAL);
@@ -64,8 +62,8 @@ void clock_lock(void)
     uint32_t base_addr;
     volatile uint32_t *kick_addr;
     
-    base_addr = CSL_MCU_CTRL_MMR0_CFG0_BASE;
-    kick_addr = (volatile uint32_t *)(base_addr + CSL_MCU_CTRL_MMR_LOCKn_KICK0_OFFSET(2));
+    base_addr = CSL_CTRL_MMR0_CFG0_BASE;
+    kick_addr = (volatile uint32_t *)(base_addr + CSL_MAIN_CTRL_MMR_LOCKn_KICK0_OFFSET(2));
     CSL_REG32_WR(kick_addr, KICK_LOCK_VAL);
     kick_addr++;
     CSL_REG32_WR(kick_addr, KICK_LOCK_VAL);
@@ -76,7 +74,7 @@ void clock_init(void)
     // Set the timer clock source
 
 
-    *(volatile uint32_t *)(MCU_TIMER0_CLOCK_SRC_MUX_ADDR) = MCU_TIMER0_CLOCK_SRC_HFOSC0_CLKOUT;
+    *(volatile uint32_t *)(TIMER0_CLOCK_SRC_MUX_ADDR) = TIMER0_CLOCK_SRC_HFOSC0_CLKOUT;
 
     struct timer timer_params;
     uint32_t reload;
@@ -84,7 +82,7 @@ void clock_init(void)
     // This is defined somewhere else in the original,
     // defined it here for simplicity.
     gclock_conf.period_usec = 1000;
-    gclock_conf.base_addr = MCU_TIMER0_BASE_ADDR;
+    gclock_conf.base_addr = TIMER0_BASE_ADDR;
 
     gclock_ctrl.ticks = 0;
     gclock_ctrl.period_usec = gclock_conf.period_usec;
@@ -97,13 +95,13 @@ void clock_init(void)
     timer_params.interrupt = 0;
     timer_params.dma = 0;
     
-    timer_setup(MCU_TIMER0_BASE_ADDR, &timer_params);
+    timer_setup(TIMER0_BASE_ADDR, &timer_params);
 
     reload = get_reload(gclock_conf.base_addr);
     
     // Do interrupt related things here
 
-    timer_start(MCU_TIMER0_BASE_ADDR);
+    timer_start(TIMER0_BASE_ADDR);
 }
 
 void clock_deinit(void)

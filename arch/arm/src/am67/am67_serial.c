@@ -42,6 +42,8 @@
 /****************************************************************************
  * Pre-processor definitions
  ****************************************************************************/
+ 
+#if defined(USE_SERIALDRIVER) // && defined(HAVE_UART_DEVICE)
 
 #define AM67_SCLK 48000000
 
@@ -398,3 +400,4 @@ void up_putc(int ch)
 //#endif
 }
 
+#endif /* USE_SERIALDRIVER */
