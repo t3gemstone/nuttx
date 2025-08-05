@@ -27,11 +27,24 @@ extern "C"
 {
 #endif
 
+typedef void (*fxn_callback)(void *args);
+
+struct clock
+{
+    fxn_callback callback;
+    void *args;
+    uint32_t start_timeout;
+    uint32_t timeout;
+    uint32_t period;
+    // struct clock *next; Uncomment to convert to a linked list
+};
+
 struct clock_ctrl
 {
     uint32_t ticks;
-    // There was a list of clock structs here
+    struct clock clock;
     uint32_t period_usec;
+    uint32_t rsv[32u / sizeof(uint32_t)];
     uint32_t base_addr;
     uint32_t reload_count;
 };
@@ -48,6 +61,9 @@ struct clock_conf
 
 void clock_init(void);
 void clock_deinit(void);
+void clock_unlock(void);
+void clock_lock(void);
+void timer_tick_isr(void *args);
 
 #ifdef __cplusplus
 }

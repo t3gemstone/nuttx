@@ -87,15 +87,9 @@ config ARCH_CHIP_AM335X
 		
 config ARCH_CHIP_AM67
 	bool "AM67"
-	#select ARCH_CORTEXR5
-	select ARM_HAVE_NEON
-	select ARCH_HAVE_IRQPRIO
-	select ARCH_HAVE_LOWVECTORS
+	select ARCH_CORTEXR5
 	select ARCH_HAVE_FETCHADD
-	select ARCH_HAVE_SDRAM
-	depends on BOOT_RUNFROMSDRAM
-	select ARCH_HAVE_ADDRENV
-	select ARCH_NEED_ADDRENV_MAPPING
+	
 	---help---
 		TI AM67 family
 

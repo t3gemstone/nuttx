@@ -19,6 +19,38 @@
  * under the License.
  *
  ****************************************************************************/
+ 
+ /*
+ *  Copyright (C) 2021 Texas Instruments Incorporated
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *    Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ *    Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the
+ *    distribution.
+ *
+ *    Neither the name of Texas Instruments Incorporated nor the names of
+ *    its contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 /****************************************************************************
  * Included Files
@@ -32,6 +64,7 @@
 #include "hardware/am67_memorymap.h"
 
 #include "am67_timer.h"
+#include "am67_irq.h"
 
 /****************************************************************************
  * Private Functions
@@ -41,9 +74,18 @@
  * Public Functions
  ****************************************************************************/
 
-struct clock_ctrl gclock_ctrl;
-struct clock_conf gclock_conf;
+struct intr_ctrl gintr_ctrl;
 
+void timer_tick_isr(void *args);
+struct clock_ctrl gclock_ctrl;
+struct clock_conf gclock_conf =
+{
+    .period_usec = 1000,
+    .base_addr = TIMER0_BASE_ADDR,
+    .hw_intr_num = 24,
+    .clock_hz = 25000000,
+    .prescaler = 1
+};
 
 void clock_unlock(void)
 {
@@ -69,44 +111,79 @@ void clock_lock(void)
     CSL_REG32_WR(kick_addr, KICK_LOCK_VAL);
 }
 
+void timer_tick_isr(void *args)
+{
+    gclock_ctrl.ticks++;
+
+    if ((gclock_ctrl.clock.timeout != 0) && (gclock_ctrl.clock.timeout  == gclock_ctrl.ticks))
+    {
+        if (gclock_ctrl.clock.period == 0)
+            gclock_ctrl.clock.timeout = 0;
+        else
+            gclock_ctrl.clock.timeout = gclock_ctrl.ticks + gclock_ctrl.clock.period;
+
+        if (gclock_ctrl.clock.callback != NULL)
+            gclock_ctrl.clock.callback(gclock_ctrl.clock.args);
+    }
+    clear_overflow_int(gclock_ctrl.base_addr);
+}
+
 void clock_init(void)
 {
-    // Set the timer clock source
-
-
-    *(volatile uint32_t *)(TIMER0_CLOCK_SRC_MUX_ADDR) = TIMER0_CLOCK_SRC_HFOSC0_CLKOUT;
-
     struct timer timer_params;
-    uint32_t reload;
-
-    // This is defined somewhere else in the original,
-    // defined it here for simplicity.
-    gclock_conf.period_usec = 1000;
-    gclock_conf.base_addr = TIMER0_BASE_ADDR;
-
+    struct intr intr_params;
+    
     gclock_ctrl.ticks = 0;
     gclock_ctrl.period_usec = gclock_conf.period_usec;
     gclock_ctrl.base_addr = gclock_conf.base_addr;
 
+    // Default parameters
     timer_params.clock_hz = 25 * 1000000;
     timer_params.prescaler = 1;
     timer_params.period_usec = 1000;
     timer_params.one_shot = 0;
-    timer_params.interrupt = 0;
+    timer_params.overflow_intr = 1;		// Enable interrupts
     timer_params.dma = 0;
     
-    timer_setup(TIMER0_BASE_ADDR, &timer_params);
-
-    reload = get_reload(gclock_conf.base_addr);
+    // Configuration parameters
+    timer_params.prescaler = gclock_conf.prescaler;
+    timer_params.clock_hz = gclock_conf.clock_hz;
+    timer_params.period_usec = gclock_conf.period_usec;
     
-    // Do interrupt related things here
+    timer_setup(gclock_ctrl.base_addr, &timer_params);
 
-    timer_start(TIMER0_BASE_ADDR);
+    gclock_ctrl.reload_count = get_reload(gclock_ctrl.base_addr);
+    
+    // Default parameters
+
+    intr_params.intr_num = 0;
+    intr_params.callback = NULL;
+    intr_params.args = NULL;
+    intr_params.event_id = 0;
+    intr_params.priority = (INTR_MAX_PRIORITY - 1U);
+    // intr_params.is_fiq = 0;
+    // intr_params.is_pulse = 0;
+
+    intr_params.intr_num = gclock_conf.hw_intr_num;
+    intr_params.callback = timer_tick_isr;
+
+    disable_intr(intr_params.intr_num);
+    clear_intr(intr_params.intr_num);
+    intr_set_priority(intr_params.intr_num, intr_params.priority);
+
+    set_vector((uint32_t)intr_params.intr_num, (uintptr_t)irq_handler);
+
+    gintr_ctrl.isr[intr_params.intr_num] = intr_params.callback;
+    gintr_ctrl.isr_args[intr_params.intr_num] = intr_params.args;
+
+    enable_intr(intr_params.intr_num);
+
+    timer_start(gclock_ctrl.base_addr);
 }
 
 void clock_deinit(void)
 {
     timer_stop(gclock_ctrl.base_addr);
 
-    // Do some interrup related things here
+    // Do some interrupt related things here
 }

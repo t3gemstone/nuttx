@@ -1,5 +1,5 @@
 /****************************************************************************
- * boards/arm/am67/beagley-ai/scripts/sdram.ld
+ * boards/arm/am335x/beaglebone-black/scripts/sdram.ld
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,121 +20,105 @@
  *
  ****************************************************************************/
 
+/* The Beaglebone Black and 512MB of SDRAM beginning at virtual address
+ * 0x8000:0000. Execution begins at address 0x8a00000, leaving 352MB for NuttX.+
+ *
+ * Vectors in low memory are assumed and 16KB of OCMC0 is reserved at the
+ * high end of OCMC0 for the page table.
+ */
 
-
-ENTRY(__start)  /* This is the entry of the application */
-
-PHDRS
+MEMORY
 {
-  text PT_LOAD ;
+    msram   (W!RX) : ORIGIN = 0x0079100000, LENGTH = 512K
 }
+
+ENTRY(entry)
+ENTRY(_stext)
 
 SECTIONS
 {
-    . = 0x0079100000; /* Kernel load address for nuttx */
-    _start = .;
+    .text :
+    {
+        _stext = ABSOLUTE(.);
+        *(.vectors)
+        *(.text .text.*)
+        *(.fixup)
+        *(.gnu.warning)
+        *(.rodata .rodata.*)
+        *(.gnu.linkonce.t.*)
+        *(.glue_7)
+        *(.glue_7t)
+        *(.got)
+        *(.gcc_except_table)
+        *(.gnu.linkonce.r.*)
+        *(.ARM.extab*)
+        *(.gnu.linkonce.armextab.*)
+        _etext = ABSOLUTE(.);
+    } > msram
 
-    .text : {
-        _stext = .;            /* Text section */
-       *(.start .start.*)      /* Place __start here */
-       *(.text)
-       *(.text.cold)
-       *(.text.unlikely)
-       *(.fixup)
-       *(.gnu.warning)
-    } :text = 0x9090
-
-    . = ALIGN(4096);
-
-    .init_section : {
+    .init_section :
+    {
         _sinit = ABSOLUTE(.);
         KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
-        KEEP(*(.init_array .ctors))
+        KEEP(*(.init_array EXCLUDE_FILE(*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o) .ctors))
         _einit = ABSOLUTE(.);
-    }
-    
-    . = ALIGN(4096);
+    } > msram
 
-    .vectors : {
-            _vector_start = .;
-            KEEP(*(.exc_vector_table))
-            KEEP(*(".exc_vector_table.*"))
-            KEEP(*(.vectors))
-        _vector_end = .;
-    } :text
-    . = ALIGN(4096);
-    _etext = .; /* End_1 of .text */
-    _sztext = _etext - _stext;
-
-    . = ALIGN(4096);
-    .rodata : {
-        _srodata = .;          /* Read-only data */
-       *(.rodata)
-       *(.rodata.*)
-       *(.data.rel.ro)
-       *(.data.rel.ro.*)
-    } :text
-    . = ALIGN(4096);
-    _erodata = .;                /* End of read-only data */
-    _szrodata = _erodata - _srodata;
-    _eronly = .;  /* End of read-only data */
-
-  . = ALIGN(4096);
-  .data : {                    /* Data */
-        _sdata = .;
-       *(.data.page_aligned)
-       *(.data)
-       . = ALIGN(8);
-       *(.data.rel)
-       *(.data.rel.*)
-       CONSTRUCTORS
-  } :text
-      _edata = .; /* End+1 of .data */
-
-  .bss : {                     /* BSS */
-       . = ALIGN(8);
-       _sbss = .;
-       *(.bss)
-       . = ALIGN(8);
-  } :text
-  . = ALIGN(4096);
-  _ebss = .;
-  _szbss = _ebss - _sbss;
-
-  .initstack : {             /* INIT STACK */
-       _s_initstack = .;
-       *(.initstack)
-       . = ALIGN(16);
-  } :text
-  . = ALIGN(4096);
-  _e_initstack = . ;
-  g_idle_topstack = . ;
-
-  _szdata = _e_initstack - _sdata;
-
-    /* Sections to be discarded */
-    /DISCARD/ : {
-       *(.exit.text)
-       *(.exit.data)
-       *(.exitcall.exit)
-       *(.eh_frame)
-    }
-
-
-  /* Stabs debugging sections.  */
-  .stab 0 : { *(.stab) }
-  .stabstr 0 : { *(.stabstr) }
-  .stab.excl 0 : { *(.stab.excl) }
-  .stab.exclstr 0 : { *(.stab.exclstr) }
-  .stab.index 0 : { *(.stab.index) }
-  .stab.indexstr 0 : { *(.stab.indexstr) }
-  .comment 0 : { *(.comment) }
-
-
-    .resource_table :
+    .ARM.extab :
     {
-        KEEP(*(.resource_table))
-        . = ALIGN(1024);
-    } :text
+        *(.ARM.extab*)
+    } > msram
 
+    /* .ARM.exidx is sorted, so has to go in its own output section.  */
+
+    PROVIDE_HIDDEN (__exidx_start = .);
+    .ARM.exidx :
+    {
+        *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+    } > msram
+    PROVIDE_HIDDEN (__exidx_end = .);
+
+    .data :
+    {
+        _sdata = ABSOLUTE(.);
+        *(.data .data.*)
+        *(.gnu.linkonce.d.*)
+        CONSTRUCTORS
+        . = ALIGN(4);
+        _edata = ABSOLUTE(.);
+    } > msram
+
+    /* Uninitialized data */
+
+    .noinit :
+    {
+        _snoinit = ABSOLUTE(.);
+        *(.noinit*)
+        _enoinit = ABSOLUTE(.);
+    } > msram
+
+    .bss :
+    {
+        _sbss = ABSOLUTE(.);
+        *(.bss .bss.*)
+        *(.gnu.linkonce.b.*)
+        *(COMMON)
+        . = ALIGN(4);
+        _ebss = ABSOLUTE(.);
+    } > msram
+
+    /* Stabs debugging sections. */
+
+    .stab 0 : { *(.stab) }
+    .stabstr 0 : { *(.stabstr) }
+    .stab.excl 0 : { *(.stab.excl) }
+    .stab.exclstr 0 : { *(.stab.exclstr) }
+    .stab.index 0 : { *(.stab.index) }
+    .stab.indexstr 0 : { *(.stab.indexstr) }
+    .comment 0 : { *(.comment) }
+    .debug_abbrev 0 : { *(.debug_abbrev) }
+    .debug_info 0 : { *(.debug_info) }
+    .debug_line 0 : { *(.debug_line) }
+    .debug_pubnames 0 : { *(.debug_pubnames) }
+    .debug_aranges 0 : { *(.debug_aranges) }
 }

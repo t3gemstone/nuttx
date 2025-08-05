@@ -104,14 +104,12 @@ void pinmux_config(const struct pinmux_conf *pinmux_conf)
         // There is an address translation here actually, add if needed later.
 
         pinmux_unlock();
-
         while (pinmux_conf->offset != PINMUX_END)     // Set all the configuration fields
         {
             reg_addr = (volatile uint32_t *)(base_addr + pinmux_conf->offset);
             CSL_REG32_WR(reg_addr, pinmux_conf->setting);
             pinmux_conf++;
         }
-
         pinmux_lock();
     }
 }
@@ -119,6 +117,6 @@ void pinmux_config(const struct pinmux_conf *pinmux_conf)
 
 void pinmux_init(void)
 {
-    pinmux_config(gpinmux_conf);
+    pinmux_config(gpinmux_conf);	// Configures pinmux in main domain
 }
 

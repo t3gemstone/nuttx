@@ -170,4 +170,4 @@
  * Public Functions Prototypes
  ****************************************************************************/
  
-void uart_init(void);
+void uart_driver_init(void);

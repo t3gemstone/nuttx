@@ -38,6 +38,7 @@
 #include "chip.h"
 #include "am67_serial.h"
 #include "am67_lowput.h"
+#include "am67_pinmux.h"
 
 /****************************************************************************
  * Pre-processor definitions
@@ -375,15 +376,23 @@ static bool am67_txready(struct uart_dev_s *dev)
 
 void arm_earlyserialinit(void)
 {
-    am67_disableuartint(&g_uart0priv, NULL);
+  pinmux_init();
+  am67_disableuartint(&g_uart0priv, NULL);
 
   CONSOLE_DEV.isconsole = true;
   am67_setup(&CONSOLE_DEV);
+  
 }
 
 void arm_serialinit(void)
 {
+    arm_earlyserialinit();
+    uart_driver_init();
+    
     uart_register("/dev/console", &CONSOLE_DEV);
+    
+    am67_send(&g_uart0port, 'B');
+    am67_send(&g_uart0port, '\n');
 }
 
 void up_putc(int ch)

@@ -41,7 +41,6 @@
 #include "am67_gpio.h"
 #include "am67_uart.h"
 #include "am67_clockconfig.h"
-#include "am67_pinmux.h"
 #include "am67_lowput.h"
 #include "am67_serial.h"
 
@@ -74,25 +73,25 @@
  *
  ****************************************************************************/
 
+//void deneme(void) __attribute__((section(".bayram")));
+
+//void deneme(void)
+//{
+//    *(uint32_t*)0x81000000 = 0x61;
+//}
+
 void arm_boot(void)
 {
-    /* Initialize clocking to settings provided by board-specific logic */
-
-    //clock_init();
-    
-    //pinmux_init();
-
-    /* Initialize CPU RAM. */
-
-    //am67_memory_initialize();   // TODO: "
 
     //arm_data_initialize();      // TODO: "
     
-    //am67_lowsetup();
+    am67_lowsetup();
     
-    //arm_earlyserialinit();
+    //deneme();
 
-    //am67_board_initialize();    // TODO: "
+    // arm_earlyserialinit();
+
+    // am67_board_initialize();    // TODO: "
     
      /* Then start NuttX */
 

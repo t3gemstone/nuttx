@@ -38,7 +38,6 @@
  ****************************************************************************/
 
 void arm_earlyserialinit(void);
-void arm_serialinit(void);
 void up_putc(int ch);
 
 #endif

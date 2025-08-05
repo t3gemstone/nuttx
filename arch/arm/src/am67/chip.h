@@ -41,6 +41,8 @@
 #define ARMV7A_ICACHE_LINESIZE 32  /* 32 bytes (8 words) */
 
 #define CSL_REG32_WR(p, v)      (CSL_REG32_WR_RAW((volatile uint32_t *)(p), (uint32_t)(v)))
+
+#define CHIP_MPCORE_VBASE	 (0x0001800000)
                                     
 static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v);
 static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v)
