@@ -1,3 +1,5 @@
+
+
 // MCU domain
 
 #define MCU_TIMER0_CLOCK_SRC_MUX_ADDR       (0x4509060u)
@@ -27,7 +29,7 @@ extern "C"
 {
 #endif
 
-typedef void (*fxn_callback)(void *args);
+typedef int (*fxn_callback)(int irq, void *context, void *args);
 
 struct clock
 {
@@ -63,7 +65,7 @@ void clock_init(void);
 void clock_deinit(void);
 void clock_unlock(void);
 void clock_lock(void);
-void timer_tick_isr(void *args);
+int timer_tick_isr(int irq, void *context, void *arg);
 
 #ifdef __cplusplus
 }

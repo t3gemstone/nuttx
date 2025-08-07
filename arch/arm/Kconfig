@@ -89,7 +89,7 @@ config ARCH_CHIP_AM67
 	bool "AM67"
 	select ARCH_CORTEXR5
 	select ARCH_HAVE_FETCHADD
-	
+	select ARCH_HAVE_LOWVECTORS
 	---help---
 		TI AM67 family
 

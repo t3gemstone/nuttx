@@ -98,7 +98,8 @@
 
 #define UART_LSR_THRE               (1 << 5) /* TX Holding Register Empty) */
 
-#define UART_IER_ALLIE               (0x000000cf)
+// #define UART_IER_ALLIE (0x000000cf) // Old UART driver uses that.
+
 /****************************************************************************************************
 * Register Definitions
 ****************************************************************************************************/

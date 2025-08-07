@@ -34,6 +34,8 @@
 
 #include <nuttx/serial/serial.h>
 
+#include <nuttx/serial/uart_16550.h>
+
 #include "arm_internal.h"
 #include "chip.h"
 #include "am67_serial.h"
@@ -43,7 +45,7 @@
 /****************************************************************************
  * Pre-processor definitions
  ****************************************************************************/
- 
+
 #if defined(USE_SERIALDRIVER) // && defined(HAVE_UART_DEVICE)
 
 #define AM67_SCLK 48000000
@@ -373,7 +375,7 @@ static bool am67_txready(struct uart_dev_s *dev)
  * Public Functions
  ****************************************************************************/
 
-
+/*
 void arm_earlyserialinit(void)
 {
   pinmux_init();
@@ -383,9 +385,15 @@ void arm_earlyserialinit(void)
   am67_setup(&CONSOLE_DEV);
   
 }
+*/
 
 void arm_serialinit(void)
 {
+    u16550_earlyserialinit();
+    u16550_serialinit();
+    
+    // Old driver
+    /*
     arm_earlyserialinit();
     uart_driver_init();
     
@@ -393,8 +401,10 @@ void arm_serialinit(void)
     
     am67_send(&g_uart0port, 'B');
     am67_send(&g_uart0port, '\n');
+    */
 }
 
+/*
 void up_putc(int ch)
 {
 //#ifdef CONFIG_SERIAL_CONSOLE
@@ -407,6 +417,20 @@ void up_putc(int ch)
 //#ifdef CONFIG_SERIAL_CONSOLE
     am67_restoreuartint(priv, ier);
 //#endif
+}
+*/
+
+
+uart_datawidth_t uart_getreg(FAR struct u16550_s *priv, unsigned int offset)
+{
+    volatile uint32_t *reg = (volatile uint32_t *)(priv->uartbase + offset);
+    return *reg;
+}
+
+void uart_putreg(FAR struct u16550_s *priv, unsigned int offset, uart_datawidth_t value)
+{
+    volatile uint32_t *reg = (volatile uint32_t *)(priv->uartbase + offset);
+    *reg = value;
 }
 
 #endif /* USE_SERIALDRIVER */

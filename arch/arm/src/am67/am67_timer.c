@@ -56,13 +56,12 @@ void up_timer_initialize(void)
     
     irq_attach(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0, (xcpt_t)timer_tick_isr, NULL);
     
-    intr_enable();  // We disabled the interrupts during interrupt
+    //intr_enable();  // We disabled the interrupts during interrupt
                     // initialization, so we enable it here now
     
-    
-    
+    up_enable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
 
-
+    
     //arm_timer_initialize(25000000);
     
     

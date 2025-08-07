@@ -30,10 +30,12 @@
  
  #include <nuttx/arch.h>
  
- #include <arm_internal.h>
+ #include "arm_internal.h"
  
  #include "am67_gpio.h"
  #include "am67_irq.h"
+ 
+ #include "gic.h"
  
  /****************************************************************************
  * Public Functions
@@ -51,7 +53,12 @@
  
  void up_irqinitialize(void)
  {
-     irq_init();
+     arm_gic0_initialize();
+     arm_gic_initialize();
+     
+     up_irq_enable();
+     
+     //irq_init();
  }
  
  
@@ -70,14 +77,13 @@
  *
  ****************************************************************************/
  
- 
+ /*
  uint32_t *arm_decodeirq(uint32_t *regs)
  {
      return regs;
  }
- 
- 
- 
+
+
  void up_disable_irq(int irq)
  {
      disable_intr(irq);
@@ -87,6 +93,7 @@
  {
      enable_intr(irq);
  }
+*/
 
 void clear_intr(uint32_t intr_num)
 {
@@ -168,7 +175,7 @@ void __attribute__((section(".text.hwi"))) irq_handler_c(void)
 
        if (isr != NULL)
        {
-           isr(args);       // Call the callback
+           isr(intr_num, NULL, args);       // Call the callback
        }
 
        intr_disable();

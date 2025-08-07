@@ -22,7 +22,7 @@ void irq_init(void);
 void intr_enable(void);
 void irq_handler(void);
 
-typedef void (*fxn_callback)(void *args);
+typedef int (*fxn_callback)(int irq, void *context, void *args);
 
 struct intr
 {

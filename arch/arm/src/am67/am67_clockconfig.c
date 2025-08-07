@@ -76,7 +76,7 @@
 
 struct intr_ctrl gintr_ctrl;
 
-void timer_tick_isr(void *args);
+
 struct clock_ctrl gclock_ctrl;
 struct clock_conf gclock_conf =
 {
@@ -111,7 +111,7 @@ void clock_lock(void)
     CSL_REG32_WR(kick_addr, KICK_LOCK_VAL);
 }
 
-void timer_tick_isr(void *args)
+int timer_tick_isr(int irq, void *context, void *arg)
 {
     gclock_ctrl.ticks++;
 
@@ -123,9 +123,11 @@ void timer_tick_isr(void *args)
             gclock_ctrl.clock.timeout = gclock_ctrl.ticks + gclock_ctrl.clock.period;
 
         if (gclock_ctrl.clock.callback != NULL)
-            gclock_ctrl.clock.callback(gclock_ctrl.clock.args);
+            gclock_ctrl.clock.callback(irq, NULL, gclock_ctrl.clock.args);
     }
     clear_overflow_int(gclock_ctrl.base_addr);
+    
+    return OK;
 }
 
 void clock_init(void)
@@ -177,6 +179,9 @@ void clock_init(void)
     gintr_ctrl.isr_args[intr_params.intr_num] = intr_params.args;
 
     enable_intr(intr_params.intr_num);
+    
+    irq_attach(intr_params.intr_num, timer_tick_isr, NULL);
+    up_enable_irq(intr_params.intr_num); // NuttX function
 
     timer_start(gclock_ctrl.base_addr);
 }

@@ -289,7 +289,7 @@
 #define CSLR_R5FSS0_CORE0_INTR_C7X256V0_CLEC_SOC_EVENTS_OUT_LEVEL_26                               (254U)
 #define CSLR_R5FSS0_CORE0_INTR_C7X256V0_CLEC_SOC_EVENTS_OUT_LEVEL_27                               (255U)
  
-#define NR_IRQS 128 // ?
+#define NR_IRQS 256
 
 /****************************************************************************
  * Public Types
