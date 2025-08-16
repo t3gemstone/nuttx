@@ -51,17 +51,6 @@
  * Public Function Prototypes
  ****************************************************************************/
 
-/****************************************************************************
- * Name: am67_lowsetup
- *
- * Description:
- *   Called at the very beginning of _start.  Performs low level
- *   initialization including setup of the console UART.  This UART done
- *   early so that the serial console is available for debugging very early
- *   in the boot sequence.
- *
- ****************************************************************************/
-
 void am67_lowsetup(void);
 
 #endif /* __ARCH_ARM_SRC_AM67_AM67_LOWPUTC_H */

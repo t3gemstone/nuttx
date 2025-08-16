@@ -1,3 +1,4 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_irq.c
  *
@@ -24,22 +25,28 @@
  * Included Files
  ****************************************************************************/
  
- #include <nuttx/config.h>
- 
- #include <assert.h>
- 
- #include <nuttx/arch.h>
- 
- #include "arm_internal.h"
- 
- #include "am67_gpio.h"
- #include "am67_irq.h"
- 
- #include "gic.h"
+#include <nuttx/config.h>
+
+#include <assert.h>
+
+#include <nuttx/arch.h>
+#include <nuttx/irq.h>
+
+#include "arm_internal.h"
+#include "irq/irq.h"
+#include "sctlr.h"
+
+#include "am67_gpio.h"
+#include "am67_irq.h"
  
  /****************************************************************************
  * Public Functions
  ****************************************************************************/
+ 
+extern uint8_t _vector_start[]; /* Beginning of vector block */
+extern uint8_t _vector_end[];   /* End+1 of vector block */
+
+static volatile uint32_t gdummy;
  
  /****************************************************************************
  * Name: up_irqinitialize
@@ -50,18 +57,20 @@
  *   subsystem into the working and ready state.
  *
  ****************************************************************************/
- 
- void up_irqinitialize(void)
- {
-     arm_gic0_initialize();
-     arm_gic_initialize();
+
+void up_irqinitialize(void)
+{
+    sched_lock(); // Put here to preven the crash in sched_unlock.
+                  // May be placed into other function.
+
+#ifdef CONFIG_ARCH_LOWVECTORS
+    DEBUGASSERT((((uintptr_t)_vector_start) & ~VBAR_MASK) == 0);
+    //cp15_wrvbar((uint32_t)_vector_start); // A crash occurs here
+#endif /* CONFIG_ARCH_LOWVECTORS */
      
-     up_irq_enable();
-     
-     //irq_init();
+     irq_init();
  }
- 
- 
+  
 /****************************************************************************
  * Name: arm_decodeirq
  *
@@ -76,24 +85,38 @@
  *   regs - A pointer to the register save area on the stack.
  *
  ****************************************************************************/
- 
- /*
- uint32_t *arm_decodeirq(uint32_t *regs)
- {
-     return regs;
- }
+
+uint32_t intr_disable(void);
+
+uint32_t *arm_decodeirq(uint32_t *regs)
+{
+    uint32_t intr_num;
+    volatile uint32_t dummy; // Have to read that, sets other registers
+
+    dummy = get_irq_vec_addr();
+
+    if (get_irq(&intr_num) == 0) // Success
+    {
+        regs = arm_doirq(intr_num, regs);
+    }
+    
+    intr_disable();
+    clear_intr(intr_num);
+    ack_irq(intr_num);
+
+    return regs;
+}
 
 
- void up_disable_irq(int irq)
- {
-     disable_intr(irq);
- }
+void up_disable_irq(int irq)
+{
+    disable_intr(irq);
+}
  
- void up_enable_irq(int irq)
- {
-     enable_intr(irq);
- }
-*/
+void up_enable_irq(int irq)
+{
+    enable_intr(irq);
+}
 
 void clear_intr(uint32_t intr_num)
 {
@@ -161,82 +184,9 @@ uint32_t intr_disable(void)
     return result;
 }
 
-void __attribute__((section(".text.hwi"))) irq_handler_c(void)
-{
-   uint32_t intr_num;
-
-   if (get_irq(&intr_num) == 0) // Success
-   {
-       fxn_callback isr;
-       void *args;
-
-       isr = gintr_ctrl.isr[intr_num];
-       args = gintr_ctrl.isr_args[intr_num];
-
-       if (isr != NULL)
-       {
-           isr(intr_num, NULL, args);       // Call the callback
-       }
-
-       intr_disable();
-       clear_intr(intr_num);
-       ack_irq(intr_num);
-   }
-}
-
-void irq_handler(void)
-{
-    __asm__ volatile
-    (
-        "SUB lr, lr, #4\n"
-        "PUSH {lr}\n"
-        "MRS lr, SPSR\n"
-        "PUSH {lr}\n"
-        "CPS #0x13\n"
-        "PUSH {r0-r4, r12}\n"
-
-        // There was some FPU configuration related additions here. Ignored.
-
-
-        "MOV r2, sp\n"
-        "AND r2, r2, #4\n"
-        "SUB sp, sp, r2\n"
-
-        "PUSH {r0-r4, lr}\n"
-        "LDR r1, =irq_handler_const\n"
-        "BLX r1\n"
-        "POP {r0-r4, lr}\n"
-        "ADD sp, sp, r2\n"
-
-        "CPSID i\n"
-        "DSB\n"
-        "ISB\n"
-
-        "POP {r0-r4, r12}\n"
-        "CPS #0x12\n"
-        "POP {LR}\n"
-        "MSR SPSR_cxsf, LR\n"
-        "POP {LR}\n"
-        "MOVS PC, LR\n"
-        "irq_handler_const: .word irq_handler_c\n"
-    );
-}
-
 void irq_init(void)
 {
     (void)intr_disable(); // Disable IRQ
-
-    // Initialize the structure, set all interrupts to
-    // lowest priority and set ISR address as IRQ handler
-
-    for (int i = 0; i < MAX_INTERRUPTS; i++)
-    {
-        gintr_ctrl.isr[i] = NULL;
-        gintr_ctrl.isr_args[i] = NULL;
-
-        intr_set_priority(i, 0xF);
-        set_vector((uint32_t)i, (uintptr_t)irq_handler);
-    }
 
     for (int i = 0; i < MAX_INTERRUPTS / 32; i++)
     {
@@ -258,11 +208,10 @@ void irq_init(void)
         addr = (uint32_t *)(INTC_BASE_ADDR + VIM_INT_MAP(i * 32));
         *addr = 0x0u;
     }
-
+  
     // ACK and clear any pending request
-    {
-        ack_irq(0);
-    }
+    gdummy = get_irq_vec_addr();
+    ack_irq(0);
 
     // Says do not enable irq here
 }

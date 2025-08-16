@@ -59,7 +59,6 @@
 
 void am67_memory_initialize(void)
 {
-  /* SDRAM was initialized by a bootloader in the supported configurations. */
 }
 
 /****************************************************************************
@@ -75,7 +74,6 @@ void am67_memory_initialize(void)
 
 void am67_board_initialize(void)
 {
-    arm_serialinit();
 }
 
 /****************************************************************************

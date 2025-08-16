@@ -23,6 +23,10 @@
 #ifndef __ARCH_ARM_SRC_AM67_AM67_GPIO_H
 #define __ARCH_ARM_SRC_AM67_AM67_GPIO_H
 
-#endif
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
 void gpio_config(void);
+
+#endif /* __ARCH_ARM_SRC_AM67_AM67_GPIO_H */

@@ -29,14 +29,27 @@
 
 MEMORY
 {
-    msram   (W!RX) : ORIGIN = 0x0079100000, LENGTH = 512K
+  ATCM    (rx)  : ORIGIN = 0x00000000, LENGTH = 64K   /* code + vectors */
+  BAYRAM  (rw)  : ORIGIN = 0x00010000, LENGTH = 1090519040   /* registers */
+  BTCM    (rwx) : ORIGIN = 0x41010000, LENGTH = 64K   /* data/bss/stacks */
+  MSRAM   (rwx) : ORIGIN = 0x0079100000, LENGTH = 512K
 }
 
+EXTERN(_vectors)
 ENTRY(entry)
 ENTRY(_stext)
 
 SECTIONS
 {
+    .interrupts :
+    {
+        __VECTOR_TABLE = .;
+        __Vectors = .;
+        . = ALIGN(4);
+        KEEP(*(.vectors))     /* Startup code */
+        . = ALIGN(4);
+    } > ATCM
+
     .text :
     {
         _stext = ABSOLUTE(.);
@@ -54,7 +67,7 @@ SECTIONS
         *(.ARM.extab*)
         *(.gnu.linkonce.armextab.*)
         _etext = ABSOLUTE(.);
-    } > msram
+    } > MSRAM
 
     .init_section :
     {
@@ -62,12 +75,12 @@ SECTIONS
         KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
         KEEP(*(.init_array EXCLUDE_FILE(*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o) .ctors))
         _einit = ABSOLUTE(.);
-    } > msram
+    } > MSRAM
 
     .ARM.extab :
     {
         *(.ARM.extab*)
-    } > msram
+    } > MSRAM
 
     /* .ARM.exidx is sorted, so has to go in its own output section.  */
 
@@ -75,7 +88,7 @@ SECTIONS
     .ARM.exidx :
     {
         *(.ARM.exidx* .gnu.linkonce.armexidx.*)
-    } > msram
+    } > MSRAM
     PROVIDE_HIDDEN (__exidx_end = .);
 
     .data :
@@ -86,7 +99,7 @@ SECTIONS
         CONSTRUCTORS
         . = ALIGN(4);
         _edata = ABSOLUTE(.);
-    } > msram
+    } > MSRAM
 
     /* Uninitialized data */
 
@@ -95,7 +108,7 @@ SECTIONS
         _snoinit = ABSOLUTE(.);
         *(.noinit*)
         _enoinit = ABSOLUTE(.);
-    } > msram
+    } > MSRAM
 
     .bss :
     {
@@ -105,7 +118,7 @@ SECTIONS
         *(COMMON)
         . = ALIGN(4);
         _ebss = ABSOLUTE(.);
-    } > msram
+    } > MSRAM
 
     /* Stabs debugging sections. */
 

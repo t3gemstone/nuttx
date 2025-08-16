@@ -766,7 +766,6 @@ void nx_start(void)
 
   /* Let other threads have access to the memory manager */
 
-  sched_lock();     // Most probably it should be somewhere else, temporarily put
   sched_trace_end();
   sched_unlock();
 

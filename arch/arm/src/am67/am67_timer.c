@@ -1,3 +1,4 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_timerisr.c
  *
@@ -23,16 +24,20 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
- 
+
 #include <nuttx/config.h>
 #include <nuttx/timers/arch_alarm.h>
 
 #include "arm_internal.h"
+#include <nuttx/arch.h>
+#include <nuttx/spinlock.h>
+#include <stdint.h>
+#include <time.h>
 #include "am67_timer.h"
 #include "am67_clockconfig.h"
 #include "am67_irq.h"
  
- /****************************************************************************
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -50,24 +55,37 @@ void up_timer_initialize(void)
 {
     // Set timer clock source
     clock_unlock();
-    *(volatile uint32_t *)(TIMER0_CLOCK_SRC_MUX_ADDR) = TIMER0_CLOCK_SRC_HFOSC0_CLKOUT;
+     *(volatile uint32_t *)(TIMER0_CLOCK_SRC_MUX_ADDR) = TIMER0_CLOCK_SRC_HFOSC0_CLKOUT;
     clock_lock();
     clock_init();
+    clock_construct();
+    clock_start();
     
     irq_attach(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0, (xcpt_t)timer_tick_isr, NULL);
     
-    //intr_enable();  // We disabled the interrupts during interrupt
+    intr_enable();  // We disabled the interrupts during interrupt
                     // initialization, so we enable it here now
     
     up_enable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
-
-    
-    //arm_timer_initialize(25000000);
-    
-    
-    //up_enable_irq(gclock_conf.hw_intr_num, timer_interrupt_handler);
 }
 
+
+int up_timer_gettime(struct timespec* ts)
+{
+	return get_count(TIMER0_BASE_ADDR);
+}
+
+int up_timer_start(struct timespec const* ts)
+{
+	timer_start(TIMER0_BASE_ADDR);
+	return 0;
+}
+
+int up_timer_cancel(struct timespec* ts)
+{
+	timer_stop(TIMER0_BASE_ADDR);
+	return 0;
+}
 
 void timer_start(uint32_t base_addr)
 {
@@ -105,9 +123,6 @@ void clear_overflow_int(uint32_t base_addr)
     
     addr = (volatile uint32_t *)(base_addr + TIMER_IRQ_STATUS);
     *addr = value;
-    
-    if ((bool)(*addr & value) == true)	// Make sure interrupt is cleared
-        *addr = value;
 }
 
 uint32_t is_overflowed(uint32_t base_addr)
@@ -128,9 +143,10 @@ void timer_setup(uint32_t base_addr, struct timer *params)
     clear_overflow_int(base_addr);
 
     clock_hz = params-> clock_hz / params->prescaler;
-    cycles = clock_hz / 1000000U;
+    cycles = (clock_hz * params->period_usec) / 1000000U;
 
     count_value = 0xFFFFFFFFu - (uint32_t)cycles - 1U;
+    count_value = 0x0;
 
     reload_value = 0;
     ctrl_value = 0;
@@ -164,26 +180,3 @@ void timer_setup(uint32_t base_addr, struct timer *params)
         *addr = (0x1U << TIMER_OVF_INT_SHIFT);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

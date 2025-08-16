@@ -1,3 +1,4 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_pinmux.h
  *
@@ -22,7 +23,6 @@
 
 #ifndef __ARCH_ARM_SRC_AM67_AM67_PINMUX_H
 #define __ARCH_ARM_SRC_AM67_AM67_PINMUX_H
-#endif
 
 /****************************************************************************
  * Included Files
@@ -291,3 +291,5 @@ struct pinmux_conf
 
 void pinmux_init(void);
 void pinmux_config(const struct pinmux_conf *pinmux_conf);
+
+#endif /* __ARCH_ARM_SRC_AM67_AM67_PINMUX_H */

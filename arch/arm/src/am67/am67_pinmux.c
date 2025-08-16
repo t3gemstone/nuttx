@@ -1,3 +1,4 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_pinmux.c
  *
@@ -62,8 +63,7 @@ static struct pinmux_conf gpinmux_conf[] =
  *  pinmux_conf. Only MAIN domain is considered in the implementation,
  *  however, I guess it is quite easy to add MCU by only changing the base 
  *  address of the related padconfig register, which is defined in am67_pinmux.h
- *  but not used here. The only difficulty would be address translation related
- *  things, which is not implemented.
+ *  but not used here.
  *****************************************************************************/
 
 void pinmux_unlock(void)    // Unlock to be able to modify pinmux settings

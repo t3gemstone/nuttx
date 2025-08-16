@@ -294,8 +294,7 @@ FAR void *mm_malloc(FAR struct mm_heap_s *heap, size_t size)
 
           /* Add the remainder back into the nodelist */
 
-          if (remainder != NULL)
-            mm_addfreechunk(heap, remainder);
+          mm_addfreechunk(heap, remainder);
         }
       else
         {

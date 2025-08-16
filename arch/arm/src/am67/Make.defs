@@ -24,4 +24,4 @@ include armv7-r/Make.defs
 
 # AM67-specific C source files
 
-CHIP_CSRCS = am67_boot.c am67_clockconfig.c am67_gpio.c am67_irq.c am67_lowput.c am67_pinmux.c am67_serial.c am67_timer.c am67_uart.c
+CHIP_CSRCS = am67_boot.c am67_clockconfig.c am67_gpio.c am67_irq.c am67_lowput.c am67_pinmux.c am67_serial.c am67_timer.c

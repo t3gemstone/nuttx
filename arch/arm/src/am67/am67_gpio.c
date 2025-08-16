@@ -43,10 +43,4 @@
 
 void gpio_config(void)
 {
-    volatile uint32_t *gpio_reg1 = (uint32_t *)0x000F41C8;	// F19 UART0_RXD
-    *gpio_reg1 = 0x00000001;
-    
-    
-    volatile uint32_t *gpio_reg2 = (uint32_t *)0x000F41CC;	// F20 UART0_TXD
-    *gpio_reg2 = 0x00000001;
 }

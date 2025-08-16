@@ -34,4 +34,4 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define GPIO0                   0
+#endif /* __ARCH_ARM_SRC_AM67_HARDWARE_AM67_GPIO_H */

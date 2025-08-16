@@ -90,6 +90,7 @@ config ARCH_CHIP_AM67
 	select ARCH_CORTEXR5
 	select ARCH_HAVE_FETCHADD
 	select ARCH_HAVE_LOWVECTORS
+	select ARCH_HAVE_TICKLESS
 	---help---
 		TI AM67 family
 

@@ -31,13 +31,11 @@
 #include <arch/board/board.h>
 
 #include "hardware/am67_uart.h"
-#include "am67_uart.h"
 
 /****************************************************************************
  * Public Functions Prototypes
  ****************************************************************************/
 
 void arm_earlyserialinit(void);
-// void up_putc(int ch);
 
-#endif
+#endif /* __ARCH_ARM_SRC_AM67_AM67_SERIAL_H */

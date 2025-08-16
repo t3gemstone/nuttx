@@ -1,3 +1,4 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/include/am67/irq.h
  *

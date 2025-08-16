@@ -1,3 +1,34 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
+/****************************************************************************
+ * arch/arm/src/am67/am67_irq.h
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
+
+#ifndef __ARCH_ARM_SRC_AM67_AM67_IRQ_H
+#define __ARCH_ARM_SRC_AM67_AM67_IRQ_H
+
+#include <stdint.h>
+
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
 
 #define VIM_BIT_POS(j)   ( (j) & 0x1Fu )
 #define VIM_IRQVEC       (0x18u)
@@ -13,8 +44,12 @@
 #define INTC_BASE_ADDR  0x2FFF0000u
 
 #define INTR_MAX_PRIORITY   (16u)
-#define MAX_INTERRUPTS      (512u)
+#define MAX_INTERRUPTS      (256u)
 
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
+ 
 void enable_intr(uint32_t intr_num);
 uint32_t disable_intr(uint32_t intr_num);
 void clear_intr(uint32_t intr_num);
@@ -41,8 +76,6 @@ struct intr_ctrl
     void *isr_args[MAX_INTERRUPTS];
 };
 
-extern struct intr_ctrl gintr_ctrl;
-
 static inline void intr_set_priority(uint32_t intr_num, uint32_t priority)
 {
     volatile uint32_t *addr;
@@ -64,6 +97,12 @@ static inline void ack_irq(uint32_t intr_num)
     addr = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_IRQVEC);
     *addr = intr_num;
 }
+static inline uint32_t get_irq_vec_addr(void)
+{
+    volatile uint32_t *addr;
+    addr = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_IRQVEC);
+    return *addr;
+}
 
 static inline int32_t get_irq(uint32_t *intr_num)
 {
@@ -71,6 +110,8 @@ static inline int32_t get_irq(uint32_t *intr_num)
     int32_t ret = 1; // Error
     uint32_t value;
 
+    // irq_addr_reg = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_IRQVEC);
+    // irq_addr = *irq_addr_reg;
     *intr_num = 0;
 
     addr = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_ACTIRQ);
@@ -83,3 +124,5 @@ static inline int32_t get_irq(uint32_t *intr_num)
     }
     return ret;
 }
+
+#endif /* __ARCH_ARM_SRC_AM67_AM67_IRQ_H */

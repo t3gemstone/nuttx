@@ -1,3 +1,4 @@
+/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_clockconfig.c
  *
@@ -19,38 +20,6 @@
  * under the License.
  *
  ****************************************************************************/
- 
- /*
- *  Copyright (C) 2021 Texas Instruments Incorporated
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *    Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- *    Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the
- *    distribution.
- *
- *    Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- *  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- *  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- *  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 
 /****************************************************************************
  * Included Files
@@ -65,6 +34,7 @@
 
 #include "am67_timer.h"
 #include "am67_irq.h"
+#include "irq/irq.h"
 
 /****************************************************************************
  * Private Functions
@@ -74,13 +44,10 @@
  * Public Functions
  ****************************************************************************/
 
-struct intr_ctrl gintr_ctrl;
-
-
 struct clock_ctrl gclock_ctrl;
 struct clock_conf gclock_conf =
 {
-    .period_usec = 1000,
+    .period_usec = 100,
     .base_addr = TIMER0_BASE_ADDR,
     .hw_intr_num = 24,
     .clock_hz = 25000000,
@@ -115,19 +82,37 @@ int timer_tick_isr(int irq, void *context, void *arg)
 {
     gclock_ctrl.ticks++;
 
-    if ((gclock_ctrl.clock.timeout != 0) && (gclock_ctrl.clock.timeout  == gclock_ctrl.ticks))
+    if (gclock_ctrl.clock.timeout  == gclock_ctrl.ticks)
     {
-        if (gclock_ctrl.clock.period == 0)
-            gclock_ctrl.clock.timeout = 0;
-        else
+        gclock_ctrl.clock.timeout = 0;
+        
+        if (gclock_ctrl.clock.period != 0U)
             gclock_ctrl.clock.timeout = gclock_ctrl.ticks + gclock_ctrl.clock.period;
-
-        if (gclock_ctrl.clock.callback != NULL)
-            gclock_ctrl.clock.callback(irq, NULL, gclock_ctrl.clock.args);
     }
     clear_overflow_int(gclock_ctrl.base_addr);
     
     return OK;
+}
+
+void clock_stop(void)
+{
+    // Implement later if needed
+}
+
+void clock_start(void)
+{
+    if (gclock_ctrl.clock.timeout > 0U) clock_stop(); // If timer is active, restart with new value
+    
+    gclock_ctrl.clock.timeout = (uint32_t)gclock_ctrl.ticks + gclock_ctrl.clock.start_timeout;
+}
+
+void clock_construct(void)
+{    
+    gclock_ctrl.clock.callback = NULL;
+    gclock_ctrl.clock.args = NULL;
+    gclock_ctrl.clock.timeout = 10;
+    gclock_ctrl.clock.period = 100;
+    gclock_ctrl.clock.start_timeout = 0;
 }
 
 void clock_init(void)
@@ -154,7 +139,7 @@ void clock_init(void)
     
     timer_setup(gclock_ctrl.base_addr, &timer_params);
 
-    gclock_ctrl.reload_count = get_reload(gclock_ctrl.base_addr);
+    // gclock_ctrl.reload_count = get_reload(gclock_ctrl.base_addr); // Reading this value stops timer ?
     
     // Default parameters
 
@@ -173,15 +158,12 @@ void clock_init(void)
     clear_intr(intr_params.intr_num);
     intr_set_priority(intr_params.intr_num, intr_params.priority);
 
-    set_vector((uint32_t)intr_params.intr_num, (uintptr_t)irq_handler);
+    set_vector((uint32_t)intr_params.intr_num, (uintptr_t)timer_tick_isr);
 
-    gintr_ctrl.isr[intr_params.intr_num] = intr_params.callback;
-    gintr_ctrl.isr_args[intr_params.intr_num] = intr_params.args;
+    g_irqvector[intr_params.intr_num].handler = intr_params.callback;
+    g_irqvector[intr_params.intr_num].arg = intr_params.args;
 
     enable_intr(intr_params.intr_num);
-    
-    irq_attach(intr_params.intr_num, timer_tick_isr, NULL);
-    up_enable_irq(intr_params.intr_num); // NuttX function
 
     timer_start(gclock_ctrl.base_addr);
 }
