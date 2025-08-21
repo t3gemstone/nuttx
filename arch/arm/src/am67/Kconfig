@@ -1,0 +1,8 @@
+if ARCH_CHIP_AM67
+
+config ARCH_CORTEXR5
+       bool "Cortex-R5"
+       select ARCH_ARMV7R
+       default y
+
+endif # ARCH_CHIP_AM67
