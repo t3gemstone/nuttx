@@ -24,194 +24,197 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
- 
-#include <nuttx/config.h>
 
 #include <assert.h>
-
 #include <nuttx/arch.h>
+#include <nuttx/config.h>
 #include <nuttx/irq.h>
 
 #include "arm_internal.h"
+// #include "irq/irq.h"
+#include "am67_gpio.h"
+#include "am67_irq.h"
+#include "am67_timer.h"
 #include "irq/irq.h"
 #include "sctlr.h"
 
-#include "am67_gpio.h"
-#include "am67_irq.h"
- 
- /****************************************************************************
- * Public Functions
- ****************************************************************************/
- 
-extern uint8_t _vector_start[]; /* Beginning of vector block */
-extern uint8_t _vector_end[];   /* End+1 of vector block */
+/*TODO: fill that function according to TI implementation */
+
 
 static volatile uint32_t gdummy;
- 
- /****************************************************************************
- * Name: up_irqinitialize
- *
- * Description:
- *   This function is called by up_initialize() during the bring-up of the
- *   system.  It is the responsibility of this function to but the interrupt
- *   subsystem into the working and ready state.
- *
- ****************************************************************************/
+
+HwiP_Config gHwiConfig;
+
+extern int irq_unexpected_isr(int irq, FAR void *context, FAR void *arg);
+extern uint32_t *arm_doirq(int irq, uint32_t *regs);
+
+void HwiP_enableInt(uint32_t intNum)
+{
+    volatile uint32_t *addr;
+    uint32_t bitPos;
+
+    Utils_dataAndInstructionBarrier();
+
+    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_EN(intNum));
+    bitPos = VIM_BIT_POS(intNum);
+
+    *addr = (0x1u << bitPos);
+}
+
+uint32_t HwiP_disableInt(uint32_t intNum)
+{
+    volatile uint32_t *addr;
+    uint32_t bitPos;
+    uint32_t isEnable = 0;
+
+    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_DIS(intNum));
+    bitPos = VIM_BIT_POS(intNum);
+
+    if ((*addr & ((uint32_t)0x1 << bitPos)) != 0U)
+    {
+        isEnable = 1;
+    }
+    *addr = ((uint32_t)0x1 << bitPos);
+
+    Utils_dataAndInstructionBarrier();
+
+    return isEnable;
+}
+
+void HwiP_restoreInt(uint32_t intNum, uint32_t oldIntState)
+{
+    if (oldIntState != 0U)
+    {
+        HwiP_enableInt(intNum);
+    }
+    else
+    {
+        (void)HwiP_disableInt(intNum);
+    }
+}
+
+void HwiP_clearInt(uint32_t intNum)
+{
+    volatile uint32_t *addr;
+    uint32_t bitPos;
+
+    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_STS(intNum));
+    bitPos = VIM_BIT_POS(intNum);
+
+    *addr = (0x1u << bitPos);
+}
+
+void HwiP_post(uint32_t intNum)
+{
+    volatile uint32_t *addr;
+    uint32_t bitPos;
+
+    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_RAW(intNum));
+    bitPos = VIM_BIT_POS(intNum);
+
+    *addr = (0x1u << bitPos);
+
+    /*
+     * Add delay to insure posted interrupt are triggered before function
+     * returns.
+     */
+
+    Utils_dataAndInstructionBarrier();
+}
 
 void up_irqinitialize(void)
 {
-    sched_lock(); // Put here to preven the crash in sched_unlock.
-                  // May be placed into other function.
+    sched_lock();
+    AM67_irq_init();
+    sched_unlock();
+}
 
-#ifdef CONFIG_ARCH_LOWVECTORS
-    DEBUGASSERT((((uintptr_t)_vector_start) & ~VBAR_MASK) == 0);
-    //cp15_wrvbar((uint32_t)_vector_start); // A crash occurs here
-#endif /* CONFIG_ARCH_LOWVECTORS */
-     
-     irq_init();
- }
-  
-/****************************************************************************
- * Name: arm_decodeirq
- *
- * Description:
- *   This function is called from the IRQ vector handler in arm_vectors.S.
- *   At this point, the interrupt has been taken and the registers have
- *   been saved on the stack.  This function simply needs to determine the
- *   the irq number of the interrupt and then to call arm_doirq to dispatch
- *   the interrupt.
- *
- *  Input parameters:
- *   regs - A pointer to the register save area on the stack.
- *
- ****************************************************************************/
+void AM67_irq_init(void)
+{
+    gHwiConfig.intcBaseAddr = 0x2FFF0000u;
 
-uint32_t intr_disable(void);
+    (void)AM67_disableIRQ();
+
+    (void)AM67_disableFIQ();
+    int i;
+    for (i = 0; i < HwiP_MAX_INTERRUPTS; i++)
+    {
+        HwiP_setPri(i, 0xF);
+        HwiP_setVecAddr((uint32_t)i, (uintptr_t)arm_vectorirq);
+    }
+
+    /* disable, clear, set as IRQ and level, all interrupts */
+    for (i = 0; i < HwiP_MAX_INTERRUPTS / 32; i++)
+    {
+        volatile uint32_t *addr;
+
+        /* disable all interrupts */
+        addr = (uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_DIS(i * 32));
+        *addr = 0xFFFFFFFFu;
+
+        /* clear all pending interrupts */
+        addr = (uint32_t *)(gHwiConfig.intcBaseAddr + VIM_STS(i * 32));
+        *addr = 0xFFFFFFFFu;
+
+        /* make all as level */
+        addr = (uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_TYPE(i * 32));
+        *addr = 0x0u;
+
+        /* make all as IRQ */
+        addr = (uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_MAP(i * 32));
+        *addr = 0x0u;
+    }
+
+    /* ACK and clear any pending request */
+    {
+        gdummy = HwiP_getIRQVecAddr();
+        gdummy = HwiP_getFIQVecAddr();
+        HwiP_ackIRQ(0);
+        HwiP_ackFIQ(0);
+    }
+
+    for (i = 0; i < NR_IRQS; i++)
+    {
+        irq_attach(i, irq_unexpected_isr, NULL);
+    }
+
+   // AM67_enableVIC();
+    //AM67_enableFIQ();
+    up_irq_enable();
+}
+
+uint32_t HwiP_getCPSR(void);
+
+uint32_t HwiP_inISR(void)
+{
+    uint32_t mode = (HwiP_getCPSR() & 0x1FU);
+    uint32_t result = 0;
+    if (mode != ARMV7R_SYSTEM_MODE)
+    {
+        result = 1;
+    }
+    return result;
+}
 
 uint32_t *arm_decodeirq(uint32_t *regs)
 {
     uint32_t intr_num;
-    volatile uint32_t dummy; // Have to read that, sets other registers
+    volatile uint32_t dummy = 1;  // Have to read that, sets other registers
 
-    dummy = get_irq_vec_addr();
+    // AM67_disableIRQ();
 
-    if (get_irq(&intr_num) == 0) // Success
+    dummy = HwiP_getIRQVecAddr();
+
+    if (HwiP_getIRQ(&intr_num) == 0)  // Success
     {
         regs = arm_doirq(intr_num, regs);
     }
-    
-    intr_disable();
-    clear_intr(intr_num);
-    ack_irq(intr_num);
+    HwiP_clearInt(intr_num);
+    HwiP_ackIRQ(intr_num);
 
     return regs;
 }
 
+void up_disable_irq(int irq) { HwiP_disableInt(irq); }
 
-void up_disable_irq(int irq)
-{
-    disable_intr(irq);
-}
- 
-void up_enable_irq(int irq)
-{
-    enable_intr(irq);
-}
-
-void clear_intr(uint32_t intr_num)
-{
-    volatile uint32_t *addr;
-    uint32_t bit_pos;
-
-    addr = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_STS(intr_num));
-    bit_pos = VIM_BIT_POS(intr_num);
-
-    *addr = (0x01u << bit_pos);
-}
-
-void enable_intr(uint32_t intr_num)
-{
-    volatile uint32_t *addr;
-    uint32_t bit_pos;
-
-    addr = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_INT_EN(intr_num));
-    bit_pos = VIM_BIT_POS(intr_num);
-
-    *addr = (0x1 << bit_pos);
-}
-
-uint32_t disable_intr(uint32_t intr_num)
-{
-    volatile uint32_t *addr;
-    uint32_t bit_pos;
-    uint32_t is_enable = 0;
-
-    addr = (volatile uint32_t *)(INTC_BASE_ADDR + VIM_INT_DIS(intr_num));
-    bit_pos = VIM_BIT_POS(intr_num);
-
-    if ((*addr & ((uint32_t)0x1 << bit_pos)) != 0u)
-        is_enable = 1;
-    *addr = ((uint32_t)0x1 << bit_pos);
-
-    return is_enable;
-}
-
-// Enables the interrupts in hardware level
-void intr_enable(void)
-{
-    __asm__ volatile
-    (
-         "mrs r0, cpsr\n"
-         "bic r12, r0, #0x80\n"
-         "msr cpsr_cf, r12\n"
-         "bx lr\n"
-    );
-}
-
-// Disables the interrupts in hardware level
-uint32_t intr_disable(void)
-{
-    uint32_t result;
-    __asm__ volatile
-    (
-        "mrs	%0, cpsr\n"
-        "orr	r12, %0, #0x80\n"
-        "msr	cpsr_cf, r12"
-        : "=r" (result)
-        :
-        : "r12"
-    );
-    return result;
-}
-
-void irq_init(void)
-{
-    (void)intr_disable(); // Disable IRQ
-
-    for (int i = 0; i < MAX_INTERRUPTS / 32; i++)
-    {
-        volatile uint32_t *addr;
-
-        // Disable all interrupts
-        addr = (uint32_t *)(INTC_BASE_ADDR + VIM_INT_DIS(i * 32));
-        *addr = 0xFFFFFFFFu;
-
-        // Clear all pending interrupts
-        addr = (uint32_t *)(INTC_BASE_ADDR + VIM_STS(i * 32));
-        *addr = 0xFFFFFFFFu;
-
-        // Make all as level
-        addr = (uint32_t *)(INTC_BASE_ADDR + VIM_INT_TYPE(i * 32));
-        *addr = 0x0u;
-
-        // Make all as IRQ
-        addr = (uint32_t *)(INTC_BASE_ADDR + VIM_INT_MAP(i * 32));
-        *addr = 0x0u;
-    }
-  
-    // ACK and clear any pending request
-    gdummy = get_irq_vec_addr();
-    ack_irq(0);
-
-    // Says do not enable irq here
-}
+void up_enable_irq(int irq) { HwiP_enableInt(irq); }
