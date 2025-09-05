@@ -41,6 +41,9 @@
 #include "am67_clockconfig.h"
 #include "am67_lowput.h"
 #include "am67_serial.h"
+#include "am67_mpuinit.h"
+#include "mpu.h"
+#include "am67_irq.h"
 
 /****************************************************************************
  * Public Functions
@@ -67,6 +70,8 @@
 
 void arm_boot(void)
 {
+    am67_mpu_initialize();
+    
     am67_lowsetup();
     
     /* Then start NuttX */

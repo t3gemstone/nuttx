@@ -29,10 +29,9 @@
 
 MEMORY
 {
-  ATCM    (rx)  : ORIGIN = 0x00000000, LENGTH = 64K   /* code + vectors */
-  BAYRAM  (rw)  : ORIGIN = 0x00010000, LENGTH = 1090519040   /* registers */
-  BTCM    (rwx) : ORIGIN = 0x41010000, LENGTH = 64K   /* data/bss/stacks */
-  MSRAM   (rwx) : ORIGIN = 0x0079100000, LENGTH = 512K
+  ATCM    (rx)  : ORIGIN = 0x00000000, LENGTH = 32K   /* code + vectors */
+  BTCM    (rwx) : ORIGIN = 0x41010000, LENGTH = 32K   /* data/bss/stacks */
+  MSRAM   (rwx) : ORIGIN = 0x79100000, LENGTH = 512K  /* Main SDRAM for code and data */
 }
 
 EXTERN(_vectors)
