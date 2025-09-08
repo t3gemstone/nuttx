@@ -37,6 +37,8 @@
  ****************************************************************************/
 
 #define CSL_REG32_WR(p, v)      (CSL_REG32_WR_RAW((volatile uint32_t *)(p), (uint32_t)(v)))
+#define CSL_REG32_RD(p)         (CSL_REG32_RD_RAW((volatile uint32_t *) (p)))
+
 
 #define CHIP_MPCORE_VBASE	 (0x0001800000)
                                     
@@ -46,5 +48,12 @@ static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v)
     *p = v;
     return;
 }
+
+static inline uint32_t CSL_REG32_RD_RAW(volatile const uint32_t * const p);
+static inline uint32_t CSL_REG32_RD_RAW(volatile const uint32_t * const p)
+{
+    return (*p);
+}
+
 
 #endif /* __ARCH_ARM_SRC_AM67_CHIP_H */
