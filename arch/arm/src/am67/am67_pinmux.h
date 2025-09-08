@@ -40,7 +40,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define CSL_PADCFG_CTRL0_CFG0_BASE      (0xf0000UL) // If in the main domain
+#define CSL_PADCFG_CTRL0_CFG0_BASE      (0xf0000UL) /* If in the main domain*/
 #define CSL_PADCFG_CTRL0_CFG0_SIZE      (0x8000UL)
 
 #define CSL_MCU_PADCFG_CTRL0_CFG0_BASE  (0x4080000UL)

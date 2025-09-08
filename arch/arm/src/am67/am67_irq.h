@@ -268,9 +268,9 @@ static inline void AM67_disableIRQ(void)
 static inline void AM67_disableFIQ(void) {
     unsigned int cpsr;
     __asm__ volatile (
-        "mrs %0, cpsr\n\t"           // Read CPSR into cpsr variable
-        "orr %0, %0, #0x40\n\t"      // Set the FIQ disable bit (bit 6)
-        "msr cpsr_cf, %0"            // Write back modified CPSR (control flags)
+        "mrs %0, cpsr\n\t"           /* Read CPSR into cpsr variable*/
+        "orr %0, %0, #0x40\n\t"      /* Set the FIQ disable bit (bit 6)*/
+        "msr cpsr_cf, %0"            /* Write back modified CPSR (control flags)*/
         : "=r" (cpsr)
         :
         : "memory"

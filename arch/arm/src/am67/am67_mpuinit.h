@@ -40,18 +40,18 @@
 #define am67_tcma_region(base, size) \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
                                      MPU_RACR_B       | \
-                                     MPU_RACR_AP_RWRW   )  // Allow user RW access, executable
+                                     MPU_RACR_AP_RWRW   )  /* Allow user RW access, executable*/
 
 #define am67_tcmb_region(base, size) \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
                                      MPU_RACR_B       | \
-                                     MPU_RACR_AP_RWRW   )  // Allow user RW access, executable
+                                     MPU_RACR_AP_RWRW   )  /* Allow user RW access, executable*/
 
 #define am67_mcu_msram_region(base,size)  \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
                                      MPU_RACR_C       | \
                                      MPU_RACR_B       | \
-                                     MPU_RACR_AP_RWRW   )  // Allow user RW access, executable
+                                     MPU_RACR_AP_RWRW   )  /* Allow user RW access, executable*/
 
 #define am67_ddr_region(base,size) \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
@@ -66,7 +66,7 @@ void am67_mpu_initialize(void);
 static inline void am67_mpu_disableBR(void)
 {
     unsigned int sctlr = cp15_rdsctlr();
-    sctlr &= ~(1 << 17);  // Clear bit 17 (disable background region)
+    sctlr &= ~(1 << 17);  /* Clear bit 17 (disable background region)*/
     cp15_wrsctlr(sctlr);
 }
 
@@ -91,4 +91,4 @@ static inline void Mpu_setRegionZero(uint32_t regionId)
 
 
 
-#endif // __ARCH_ARM_SRC_IMXRT_AM67_MPUINIT_H
+#endif /* __ARCH_ARM_SRC_IMXRT_AM67_MPUINIT_H*/

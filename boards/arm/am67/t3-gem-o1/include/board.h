@@ -9,8 +9,8 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-#define BOARD_FREQUENCY		600000000 	// 600 MHz core clock
-#define BOARD_XTAL_FREQUENCY 	24000000	// 24 MHz external crystal
+#define BOARD_FREQUENCY		600000000 	/* 600 MHz core clock*/
+#define BOARD_XTAL_FREQUENCY 	24000000	/* 24 MHz external crystal*/
 
 /****************************************************************************
  * R5F Specific Configurations

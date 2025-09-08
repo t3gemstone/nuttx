@@ -51,5 +51,5 @@
 
 
 void am67_clockconfig(){
-    // all periphal clocks are setted by U-boot so we don't need to setup
+    /* all periphal clocks are setted by U-boot so we don't need to setup*/
 }

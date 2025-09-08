@@ -31,7 +31,7 @@
 #include <nuttx/irq.h>
 
 #include "arm_internal.h"
-// #include "irq/irq.h"
+/* #include "irq/irq.h"*/
 #include "am67_gpio.h"
 #include "am67_irq.h"
 #include "am67_timer.h"
@@ -178,9 +178,8 @@ void AM67_irq_init(void)
         irq_attach(i, irq_unexpected_isr, NULL);
     }
 
-   // AM67_enableVIC();
-    //AM67_enableFIQ();
-    up_irq_enable();
+   /* AM67_enableVIC();*/    /*AM67_enableFIQ();*/
+   up_irq_enable();
 }
 
 uint32_t HwiP_getCPSR(void);
@@ -199,13 +198,12 @@ uint32_t HwiP_inISR(void)
 uint32_t *arm_decodeirq(uint32_t *regs)
 {
     uint32_t intr_num;
-    volatile uint32_t dummy = 1;  // Have to read that, sets other registers
+    volatile uint32_t dummy = 1;  /* Have to read that, sets other registers*/
 
-    // AM67_disableIRQ();
-
+    /* AM67_disableIRQ();*/
     dummy = HwiP_getIRQVecAddr();
 
-    if (HwiP_getIRQ(&intr_num) == 0)  // Success
+    if (HwiP_getIRQ(&intr_num) == 0)  /* Success*/
     {
         regs = arm_doirq(intr_num, regs);
     }

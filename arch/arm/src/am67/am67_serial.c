@@ -46,7 +46,7 @@
  * Pre-processor definitions
  ****************************************************************************/
 
-#if defined(USE_SERIALDRIVER) // && defined(HAVE_UART_DEVICE)
+#if defined(USE_SERIALDRIVER) /* && defined(HAVE_UART_DEVICE)*/
 
 /****************************************************************************
  * Private Types

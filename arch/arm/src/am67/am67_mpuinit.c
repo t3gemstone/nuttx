@@ -25,8 +25,7 @@ void am67_mpu_reset(){
 void am67_mpu_initialize(void)
 {
   /* Show MPU information */
-  //mpu_showtype();
-
+  /*mpu_showtype();*/
   /* Reset MPU*/
   mpu_control(false);
   am67_mpu_disableBR();
