@@ -70,14 +70,21 @@
 
 void arm_serialinit(void)
 {
+    
     u16550_earlyserialinit();
     u16550_serialinit();
+    open_uart();
 }
 
 uart_datawidth_t uart_getreg(FAR struct u16550_s *priv, unsigned int offset)
 {
     volatile uint32_t *reg = (volatile uint32_t *)(priv->uartbase + offset);
     return *reg;
+}
+
+void open_uart(){
+    volatile uint32_t *reg = (volatile uint32_t *)(0x0002800000 + 0x20);
+    *reg = 0;
 }
 
 void uart_putreg(FAR struct u16550_s *priv, unsigned int offset, uart_datawidth_t value)
