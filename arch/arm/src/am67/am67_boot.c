@@ -25,49 +25,20 @@
  ****************************************************************************/
 
 #include "am67_boot.h"
-
 #include <arch/board/board.h>
-#include <assert.h>
-#include <debug.h>
 #include <nuttx/config.h>
-#include <nuttx/init.h>
-#include <stdint.h>
-
-#include "am67_clockconfig.h"
-#include "am67_irq.h"
 #include "am67_lowput.h"
 #include "am67_mpuinit.h"
 #include "am67_rsc.h"
-#include "am67_serial.h"
 #include "arm.h"
-#include "arm_internal.h"
-#include "chip.h"
-#include "mpu.h"
+
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
-/****************************************************************************
- * Name: arm_boot
- *
- * Description:
- *   Complete boot operations started in arm_head.S
- *
- * Boot Sequence
- *
- *   1.  The __start entry point in armv7-r/arm_head.S is invoked upon power-
- *       on reset.
- *   2.  __start prepares CPU for code execution.
- *   3. If CONFIG_ARMV7R_MEMINIT is not defined, then __start will prepare
- *       memory resources by calling arm_data_initialize() and will then
- *       branch this function.
- *   4.  This function will then branch to nx_start() to start the operating
- *       system.
- *
- ****************************************************************************/
 
-
+/*Resource table for RemoteProc */
 
 __attribute__((section(".resource_table")))
 volatile const struct resource_table rsc_table = {
@@ -94,10 +65,37 @@ volatile const struct resource_table rsc_table = {
     },
 };
 
-
+/****************************************************************************
+ * Name: arm_boot
+ *
+ * Description:
+ *   Complete boot operations started in arm_head.S
+ *
+ * Boot Sequence
+ *
+ *   1.  The __start entry point in armv7-r/arm_head.S is invoked upon power-
+ *       on reset.
+ *   2.  __start prepares CPU for code execution.
+ *   3a. If CONFIG_ARMV7R_MEMINIT is not defined, then __start will prepare
+ *       memory resources by calling arm_data_initialize() and will then
+ *       branch this function.
+ *   3b. Otherwise, this function will be called without having initialized
+ *       memory resources!  We need to be very careful in this case.  Here,
+ *       this function will call tms570_boardinitialize() which, among other
+ *       things, must initialize SDRAM memory.  After initializatino of the
+ *       memories, this function will call arm_data_initialize() to
+ *       initialize the memory resources
+ *   4.  This function will then branch to nx_start() to start the operating
+ *       system.
+ *
+ ****************************************************************************/
 void arm_boot(void)
 {
+    /*Configure the MPU to permit user-space access to its ATCM, BTCM and DDR section */
+
     am67_mpu_initialize();
+    
+    /*do lowsetup for getting UART as soon as early*/
     am67_lowsetup();
 
     /* Then start NuttX */

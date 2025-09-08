@@ -23,6 +23,10 @@
 #ifndef __ARCH_ARM_SRC_AM67_AM67_IRQ_H
 #define __ARCH_ARM_SRC_AM67_AM67_IRQ_H
 
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
 #include <nuttx/irq.h>
 #include <stdint.h>
 
@@ -32,6 +36,7 @@
 
 #define INTR_MAX_INTERRUPTS     (512u)
 #define intr_MAX_PRIORITY       (16u)
+#define INTRC_BASE_ADDR         0x2fff0000u
 
 #define VIM_BIT_POS(j)   ( (j) & 0x1Fu )
 #define VIM_IRQVEC       (0x18u)
@@ -56,13 +61,6 @@
 #define INTR_FAILURE   ((int32_t)-1)
 #define INTR_TIMEOUT   ((int32_t)-2)
 
-typedef struct intr_config_
-{
-    
-    uint32_t intc_base_addr ; /**< For R5F, this is VIM base addr */
-
-} intr_config_t;
-
 
 typedef struct intr_Params_ {
 
@@ -85,19 +83,23 @@ typedef struct intr_Struct_s {
 
 } intr_Struct;
 
-extern intr_config_t intr_config;
-
 
 int intr_irq_handler(int irq, FAR void *context, FAR void *arg);
 int intr_fiq_handler(int irq, FAR void *context, FAR void *arg);
 void am67_irq_init(void);
 
-static inline void  intr_setAsFIQ(uint32_t int_num, uint32_t is_fiq)
+
+/****************************************************************************
+ * Name: intr_set_as_fiq
+ * Description
+ * Converts interrupts to Fast Interrupt
+ ****************************************************************************/
+static inline void  intr_set_as_fiq(uint32_t int_num, uint32_t is_fiq)
 {
     volatile uint32_t *addr;
     uint32_t bit_pos;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_MAP(int_num));
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_INT_MAP(int_num));
     bit_pos = VIM_BIT_POS(int_num);
 
     if(is_fiq != 0U)
@@ -110,72 +112,69 @@ static inline void  intr_setAsFIQ(uint32_t int_num, uint32_t is_fiq)
     }
 }
 
-static inline uint32_t  intr_is_pulse(uint32_t int_num)
-{
-    volatile uint32_t *addr;
-    uint32_t bit_pos;
-
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_TYPE(int_num));
-    bit_pos = VIM_BIT_POS(int_num);
-
-    return ((*addr >> bit_pos) & 0x1u );
-}
 
 
-static inline void  intr_setAsPulse(uint32_t int_num, uint32_t is_pulse)
-{
-    volatile uint32_t *addr;
-    uint32_t bit_pos;
-
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_TYPE(int_num));
-    bit_pos = VIM_BIT_POS(int_num);
-
-    if(is_pulse != 0U)
-    {
-        *addr |= (0x1u << bit_pos);
-    }
-    else
-    {
-        *addr &= ~(0x1u << bit_pos);
-    }
-}
-
-static inline void  intr_setPri(uint32_t int_num, uint32_t priority)
+/****************************************************************************
+ * Name: intr_set_pri
+ * Description
+ * sets the priority level (0–15) for a specified interrupt 
+ ****************************************************************************/
+static inline void  intr_set_pri(uint32_t int_num, uint32_t priority)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_PRI(int_num));
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_INT_PRI(int_num));
 
     *addr = (priority & 0xFu);
 }
 
+/****************************************************************************
+ * Name: intr_setVecAddr
+ * Description
+ * sets the interrupt vector address for a specific interrupt number into the corresponding interrupt controller register.
+ ****************************************************************************/
 static inline void intr_setVecAddr(uint32_t int_num, uintptr_t vecAddr)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_VEC(int_num));
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_INT_VEC(int_num));
 
     *addr = ((uint32_t)vecAddr & 0xFFFFFFFCU);
 }
 
-static inline uint32_t intr_get_irqVecAddr(void)
+/****************************************************************************
+ * Name: intr_get_irq_vec_addr
+ * Description
+ * gets the interrupt vector address for a specific interrupt number from the corresponding interrupt controller register.
+ ****************************************************************************/
+static inline uint32_t intr_get_irq_vec_addr(void)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_IRQVEC);
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_IRQVEC);
 
     return *addr;
 }
 
-static inline uint32_t intr_get_fiqVecAddr(void)
+/****************************************************************************
+ * Name: intr_get_fiq_vec_addr
+ * Description
+ * gets the fast interrupt vector address for a specific interrupt number from the corresponding interrupt controller register.
+ ****************************************************************************/
+static inline uint32_t intr_get_fiq_vec_addr(void)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_FIQVEC);
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_FIQVEC);
 
     return *addr;
 }
 
+/****************************************************************************
+ * Name: intr_get_irq
+ * Description
+ * Returns the interrupt status corresponding to the given int_num.
+ ****************************************************************************/
 static inline int32_t intr_get_irq(uint32_t *int_num)
 {
     volatile uint32_t *addr;
@@ -184,7 +183,7 @@ static inline int32_t intr_get_irq(uint32_t *int_num)
 
     *int_num = 0;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_ACTIRQ);
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_ACTIRQ);
     value = *addr;
 
     if((value & 0x80000000U) != 0U)
@@ -195,6 +194,11 @@ static inline int32_t intr_get_irq(uint32_t *int_num)
     return status;
 }
 
+/****************************************************************************
+ * Name: intr_get_fiq
+ * Description
+ * Returns the fast interrupt status corresponding to the given int_num.
+ ****************************************************************************/
 static inline int32_t intr_get_fiq(uint32_t *int_num)
 {
     volatile uint32_t *addr;
@@ -203,7 +207,7 @@ static inline int32_t intr_get_fiq(uint32_t *int_num)
 
     *int_num = 0;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_ACTFIQ);
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_ACTFIQ);
     value = *addr;
 
     if((value & 0x80000000U) != 0U)
@@ -214,22 +218,23 @@ static inline int32_t intr_get_fiq(uint32_t *int_num)
     return status;
 }
 
+/****************************************************************************
+ * Name: intr_ack_irq
+ ****************************************************************************/
 static inline void intr_ack_irq(uint32_t int_num)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_IRQVEC);
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_IRQVEC);
     *addr = int_num;
 }
 
-static inline void intr_ack_fiq(uint32_t int_num)
-{
-    volatile uint32_t *addr;
-
-    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_FIQVEC);
-    *addr= int_num;
-}
-
+/****************************************************************************
+ * Name: utils_data_and_instruction_barrier
+ * Description 
+ * Enforces CPU memory ordering by executing an Instruction Synchronization Barrier (ISB) followed by a Data Synchronization Barrier (DSB),
+ * ensuring all previous instructions complete and memory accesses are synchronized before continuing execution.
+ ****************************************************************************/
 static inline void utils_data_and_instruction_barrier(void)
 {
     __asm__ __volatile__(
@@ -247,6 +252,11 @@ static inline void utils_data_and_instruction_barrier(void)
 }
 
 
+/****************************************************************************
+ * Name: am67_disable_irq
+ * Description
+ * Disables interrupt request in assembly level
+ ****************************************************************************/
 static inline void am67_disable_irq(void)
 {
     unsigned int cpsr;
@@ -260,6 +270,11 @@ static inline void am67_disable_irq(void)
     );
 }
 
+/****************************************************************************
+ * Name: am67_disable_fiq
+ * Description
+ * Disables interrupt request in assembly level
+ ****************************************************************************/
 static inline void am67_disable_fiq(void) {
     unsigned int cpsr;
     __asm__ volatile (
@@ -273,6 +288,11 @@ static inline void am67_disable_fiq(void) {
 }
 
 
+/****************************************************************************
+ * Name: am67_enable_fiq
+ * Description
+ * Enables fast interrupt request in assembly level
+ ****************************************************************************/
 static inline void am67_enable_fiq(void)
 {
     unsigned int cpsr;
@@ -287,6 +307,11 @@ static inline void am67_enable_fiq(void)
 }
 
 
+/****************************************************************************
+ * Name: am67_enable_irq
+ * Description
+ * Enables interrupt request in assembly level
+ ****************************************************************************/
 static inline void am67_enable_irq(void)
 {
     unsigned int cpsr;
@@ -300,6 +325,11 @@ static inline void am67_enable_irq(void)
     );
 }
 
+/****************************************************************************
+ * Name: am67_enable_vic
+ * Description
+ * Enables Virtual Interrupt Controller in assembly level
+ ****************************************************************************/
 static inline void am67_enable_vic(void)
 {
     unsigned int sctlr;
@@ -311,6 +341,54 @@ static inline void am67_enable_vic(void)
         :
         : "memory"
     );
+}
+
+
+/****************************************************************************
+ * Name: intr_is_pulse
+ ****************************************************************************/
+static inline uint32_t  intr_is_pulse(uint32_t int_num)
+{
+    volatile uint32_t *addr;
+    uint32_t bit_pos;
+
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_INT_TYPE(int_num));
+    bit_pos = VIM_BIT_POS(int_num);
+
+    return ((*addr >> bit_pos) & 0x1u );
+}
+
+
+/****************************************************************************
+ * Name: intr_set_as_pulse
+ ****************************************************************************/
+static inline void  intr_set_as_pulse(uint32_t int_num, uint32_t is_pulse)
+{
+    volatile uint32_t *addr;
+    uint32_t bit_pos;
+
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_INT_TYPE(int_num));
+    bit_pos = VIM_BIT_POS(int_num);
+
+    if(is_pulse != 0U)
+    {
+        *addr |= (0x1u << bit_pos);
+    }
+    else
+    {
+        *addr &= ~(0x1u << bit_pos);
+    }
+}
+
+/****************************************************************************
+ * Name: intr_ack_fiq
+ ****************************************************************************/
+static inline void intr_ack_fiq(uint32_t int_num)
+{
+    volatile uint32_t *addr;
+
+    addr = (volatile uint32_t *)(INTRC_BASE_ADDR + VIM_FIQVEC);
+    *addr= int_num;
 }
 
 

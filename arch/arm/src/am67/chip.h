@@ -42,13 +42,23 @@
 #define CHIP_MPCORE_VBASE	 (0x0001800000)
                                     
 static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v);
+static inline uint32_t CSL_REG32_RD_RAW(volatile const uint32_t * const p);
+
+/****************************************************************************
+ * Name: CSL_REG32_WR_RAW
+ * Description
+ * writes a 32-bit value directly to a given memory-mapped register address
+ ****************************************************************************/
 static inline void CSL_REG32_WR_RAW(volatile uint32_t * const p, uint32_t v)
 {
     *p = v;
     return;
 }
 
-static inline uint32_t CSL_REG32_RD_RAW(volatile const uint32_t * const p);
+/****************************************************************************
+ * Name: CSL_REG32_RD_RAW
+ * reads and returns a 32-bit value from a specified register address
+ ****************************************************************************/
 static inline uint32_t CSL_REG32_RD_RAW(volatile const uint32_t * const p)
 {
     return (*p);

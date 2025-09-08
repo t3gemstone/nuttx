@@ -64,11 +64,20 @@
 
 #define TIMER_OVF_INT_SHIFT     (0x1)
 
+#define TIMER_IRQ_EOI           (0x20u)
+#define TIMER_IRQ_STATUS_RAW    (0x24u)
+#define TIMER_IRQ_STATUS        (0x28u)
+#define TIMER_IRQ_INT_ENABLE    (0x2Cu)
+#define TIMER_IRQ_INT_DISABLE   (0x30u)
+#define TIMER_TCLR              (0x38u)
+#define TIMER_TCRR              (0x3cu)
+#define TIMER_TLDR              (0x40u)
+
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
-typedef struct Timer_Params_ {
+typedef struct timer_params_ {
 
     uint32_t inputPreScaler; /**< input pre-scaler divisor ro apply
                               *
@@ -77,37 +86,40 @@ typedef struct Timer_Params_ {
                               * \note This field is valid only when underlying timer is DM Timer.
                               * \note This field is not valid when underlying timer is RTI Timer. Set to 1 in this case.
                               */
+
     uint32_t inputClkHz;  /**< Timer input clock in unit of Hz before pre-scaler, system initialization MUST
                             * make any system level muxes, PLLs, power required to input this clock are setup properly
                             *
                             * \note MAKE sure this value is not 0
                             */
-    uint32_t periodInUsec; /**< Timer period in units of usecs, internally \ref TimerP_Params.inputClkHz
-                            * and TimerP_Params.inputPreScaler is used to compute the value to be put inside the timer HW register
+
+    uint32_t periodInUsec; /**< Timer period in units of usecs, internally \ref am67_timer_params.inputClkHz
+                            * and am67_timer_params.inputPreScaler is used to compute the value to be put inside the timer HW register
                             *
                             * \note When value is 0, \ref periodInNsec is used instead
                             * \note When both \ref periodInUsec and \ref periodInNsec are non-zero, \ref periodInNsec is used
                             */
-    uint32_t periodInNsec; /**< Timer period in units of nsecs, internally \ref TimerP_Params.inputClkHz
-                            * and TimerP_Params.inputPreScaler is used to compute the value to be put inside the timer HW register
+
+    uint32_t periodInNsec; /**< Timer period in units of nsecs, internally \ref am67_timer_params.inputClkHz
+                            * and am67_timer_params.inputPreScaler is used to compute the value to be put inside the timer HW register
                             *
                             * \note When value is 0, \ref periodInUsec is used instead
                             * \note When both \ref periodInUsec and \ref periodInNsec are non-zero, \ref periodInNsec is used
                             */
+
     uint32_t oneshotMode; /**< 0: continuous mode of operation, 1: oneshot mode of operation
                             *
                             * \note NOT supported for RTI timer, always set to 0 in this case.
                             */
+
     uint32_t enableOverflowInt; /**< 0: Do not enable timer overflow interrupt, 1: enable timer overflow interrupt */
     uint32_t enableDmaTrigger;  /**< 0: Do not enable DMA trigger from timer, 1: enable DMA trigger from timer */
 
-} Timer_Params;
+} timer_params;
+
 /****************************************************************************
- * Public Functions
+ * Public Functions Declerations
  ****************************************************************************/
-
-
-/* Function declarations */
 
 void up_timer_initialize(void);
 
@@ -119,21 +131,21 @@ int up_timer_start(const struct timespec *ts);
 
 int up_timer_cancel(struct timespec *ts);
 
-void TimerP_Params_init(Timer_Params *params);
+void am67_timer_params_init(timer_params *params);
 
-void TimerP_setup(uint32_t baseAddr, Timer_Params *params);
+void am67_timer_setup(uint32_t baseAddr, timer_params *params);
 
-void TimerP_start(uint32_t baseAddr);
+void am67_timer_start(uint32_t baseAddr);
 
-void TimerP_stop(uint32_t baseAddr);
+void am67_timer_stop(uint32_t baseAddr);
 
-uint32_t TimerP_getCount(uint32_t baseAddr);
+uint32_t am67_timer_getCount(uint32_t baseAddr);
 
-uint32_t TimerP_getReloadCount(uint32_t baseAddr);
+uint32_t am67_timer_getReloadCount(uint32_t baseAddr);
 
-void TimerP_clearOverflowInt(uint32_t baseAddr);
+void am67_timer_clearOverflowInt(uint32_t baseAddr);
 
-uint32_t TimerP_isOverflowed(uint32_t baseAddr);
+uint32_t am67_timer_isOverflowed(uint32_t baseAddr);
 
 
 #endif /* __ARCH_ARM_SRC_AM67_AM67_TIMER_H */

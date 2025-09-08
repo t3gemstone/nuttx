@@ -25,25 +25,14 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <stdio.h>
-
-#include "am67_clockconfig.h"
-#include "am67_irq.h"
-#include "am67_timer.h"
-#include "arm_internal.h"
-#include "hardware/am67_memorymap.h"
-#include "irq/irq.h"
-#include <nuttx/arch.h>
-#include <stdint.h>
-
-/****************************************************************************
- * Private Functions
- ****************************************************************************/
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
+/****************************************************************************
+ * Name: am67_clockconfig
+ ****************************************************************************/
 void am67_clockconfig(void)
 {
   /* all periphal clocks are setted by U-boot so we don't need to setup */

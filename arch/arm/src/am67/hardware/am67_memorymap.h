@@ -35,11 +35,18 @@
 #  error Unrecognized AM67 chip
 #endif
 
-#define MAIN_GPIO0_BASE         0x600000UL
-#define MAIN_GPIO0_SIZE         0x100UL
 
-#define MAIN_GPIO1_BASE         0x601000UL
-#define MAIN_GPIO1_SIZE         0x100UL
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#define MAIN_GPIO0_BASE         0x600000 
+#define MAIN_GPIO0_SIZE         0x100 /* 256 B*/
+
+
+#define MAIN_GPIO1_BASE         0x601000
+#define MAIN_GPIO1_SIZE         0x100 /* 256 B*/
+
 
 #define UART0_BASE			0x0002800000
 #define UART0_SIZE			0x200 /* 512 B*/

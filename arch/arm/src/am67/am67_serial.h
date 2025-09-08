@@ -29,7 +29,6 @@
  
 #include <nuttx/config.h>
 #include <arch/board/board.h>
-
 #include "hardware/am67_uart.h"
 
 /****************************************************************************

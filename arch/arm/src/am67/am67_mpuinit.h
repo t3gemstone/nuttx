@@ -1,12 +1,38 @@
+ /****************************************************************************
+ * arch/arm/src/am67/am67_mpuinit.h
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
+
 #ifndef __ARCH_ARM_SRC_IMXRT_AM67_MPUINIT_H
 #define __ARCH_ARM_SRC_IMXRT_AM67_MPUINIT_H
 
-
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
 #include <nuttx/config.h>
-
 #include <sys/types.h>
 #include <stdint.h>
 #include "mpu.h"
+
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
 
 #define NUM_OF_REGION 5
 
@@ -22,6 +48,8 @@
 #define ARM67_MCU_MSRAM_SIZE 512UL * 1024
 
 #define ARM67_DDR_SIZE 2UL * 1024 * 1024 * 1024
+
+
 
 /** REGISTER_REGION
         Not Cacheable  
@@ -42,27 +70,47 @@
                                      MPU_RACR_B       | \
                                      MPU_RACR_AP_RWRW   )  /* Allow user RW access, executable*/
 
+/** TCMB REGION
+        Bufferable      
+        Cacheable      
+        P:RW   U:R0  */
 #define am67_tcmb_region(base, size) \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
                                      MPU_RACR_B       | \
-                                     MPU_RACR_AP_RWRW   )  /* Allow user RW access, executable*/
+                                     MPU_RACR_C       | \
+                                     MPU_RACR_AP_RWRW )  /* Allow user RW access, executable*/
 
+/** MCU MSRAM REGION
+        Bufferable      
+        Cacheable      
+        P:RW   U:RW  */
 #define am67_mcu_msram_region(base,size)  \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
                                      MPU_RACR_C       | \
                                      MPU_RACR_B       | \
-                                     MPU_RACR_AP_RWRW   )  /* Allow user RW access, executable*/
+                                     MPU_RACR_AP_RWRW )  /* Allow user RW access, executable*/
 
+/** DDR REGION
+        Shareable
+        Cacheable
+        Bufferable
+        P:RW   U:RW  */
 #define am67_ddr_region(base,size) \
     mpu_configure_region(base, size, MPU_RACR_TEX(1)  | \
                                      MPU_RACR_S       | \
                                      MPU_RACR_C       | \
                                      MPU_RACR_B       | \
-                                     MPU_RACR_AP_RWRW )    
+                                     MPU_RACR_AP_RWRW )
 
 void am67_mpu_initialize(void);
 
+/****************************************************************************
+ * privte Function 
+ ****************************************************************************/
 
+/****************************************************************************
+ * Name: am67_mpu_disableBR
+ ****************************************************************************/
 static inline void am67_mpu_disableBR(void)
 {
     unsigned int sctlr = cp15_rdsctlr();
@@ -71,6 +119,9 @@ static inline void am67_mpu_disableBR(void)
 }
 
 
+/****************************************************************************
+ * Name: mpu_set_region_zero
+ ****************************************************************************/
 static inline void mpu_set_region_zero(uint32_t regionId)
 {
     register uint32_t r0 asm("r0") = regionId;
