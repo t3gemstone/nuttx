@@ -37,4 +37,6 @@
 
 void arm_earlyserialinit(void);
 
+void open_uart(void);
+
 #endif /* __ARCH_ARM_SRC_AM67_AM67_SERIAL_H */

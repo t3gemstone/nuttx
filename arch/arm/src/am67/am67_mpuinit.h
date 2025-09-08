@@ -49,7 +49,7 @@
 
 #define ARM67_DDR_SIZE 2UL * 1024 * 1024 * 1024
 
-
+void am67_mpu_reset(void);
 
 /** REGISTER_REGION
         Not Cacheable  

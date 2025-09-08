@@ -43,7 +43,7 @@
  * Description:
  * It sets the region to zero to clear it. Zero means the default value of the region attributes; you will need to set them as desired afterward.
  ****************************************************************************/
-void am67_mpu_reset(){
+void am67_mpu_reset(void){
   for( int i =0 ; i < NUM_OF_REGION ; i++){
     mpu_set_region_zero(i);
   }

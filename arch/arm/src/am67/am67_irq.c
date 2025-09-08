@@ -187,9 +187,12 @@ void am67_irq_init(void)
         addr = (uint32_t *)(INTRC_BASE_ADDR + VIM_INT_MAP(i * 32));
         *addr = 0x0u;
     }
-
+    
     /* ACK and clear any pending request */
-    {
+    {   
+        volatile uint32_t dummy = 1;  /* Have to read that, sets other registers*/
+        dummy = intr_get_irq_vec_addr();
+        dummy = intr_get_fiq_vec_addr();
         intr_ack_irq(0);
         intr_ack_fiq(0);
     }

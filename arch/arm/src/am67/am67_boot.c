@@ -25,12 +25,14 @@
  ****************************************************************************/
 
 #include "am67_boot.h"
+#include <nuttx/init.h>
 #include <arch/board/board.h>
 #include <nuttx/config.h>
 #include "am67_lowput.h"
 #include "am67_mpuinit.h"
 #include "am67_rsc.h"
 #include "arm.h"
+
 
 
 /****************************************************************************

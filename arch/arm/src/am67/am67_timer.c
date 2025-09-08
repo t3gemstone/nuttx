@@ -35,8 +35,7 @@
 #include <time.h>
 #include "am67_timer.h"
 #include "am67_clockconfig.h"
-#include "irq.h"
- 
+#include "am67_irq.h"
 
 /****************************************************************************
  * Public Functions
@@ -61,10 +60,11 @@ void up_timer_initialize(void)
     up_enable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
 }
 
-__attribute__((section(".tickTimer")))
+
 /****************************************************************************
  * Name: timer_tick_isr
  ****************************************************************************/
+__attribute__((section(".tickTimer")))
 int timer_tick_isr(int irq, void *context, void *arg)
 { 
     am67_timer_clearOverflowInt(AM67_DMTIMER1_1MS_TIMER0_VADDR);
