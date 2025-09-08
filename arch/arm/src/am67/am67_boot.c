@@ -24,26 +24,25 @@
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/config.h>
+#include "am67_boot.h"
 
-#include <stdint.h>
+#include <arch/board/board.h>
 #include <assert.h>
 #include <debug.h>
-
+#include <nuttx/config.h>
 #include <nuttx/init.h>
-#include <arch/board/board.h>
+#include <stdint.h>
 
-#include "chip.h"
+#include "am67_clockconfig.h"
+#include "am67_irq.h"
+#include "am67_lowput.h"
+#include "am67_mpuinit.h"
+#include "am67_rsc.h"
+#include "am67_serial.h"
 #include "arm.h"
 #include "arm_internal.h"
-
-#include "am67_boot.h"
-#include "am67_clockconfig.h"
-#include "am67_lowput.h"
-#include "am67_serial.h"
-#include "am67_mpuinit.h"
+#include "chip.h"
 #include "mpu.h"
-#include "am67_irq.h"
 
 /****************************************************************************
  * Public Functions
@@ -68,13 +67,39 @@
  *
  ****************************************************************************/
 
+
+
+__attribute__((section(".resource_table")))
+volatile const struct resource_table rsc_table = {
+    .ver = 1,
+    .num = 1,  /* One resource entry (Virtio device) */
+    .reserved = {0, 0},
+    .offset = {
+        offsetof(struct resource_table, vdev), /* Offset to Virtio device */
+    },
+    .vdev = {
+        .type = RSC_VDEV,
+        .id = VIRTIO_ID_RPMSG,
+        .notifyid = 0,
+        .dfeatures = 0,
+        .gfeatures = 0,
+        .config_len = 0,
+        .status = 0,
+        .num_of_vrings = 2,
+        .reserved = {0, 0},
+        .vring = {
+            {SHARED_MEM_BASE, 4096, 512, 0, 0}, /* VRING0: RX */
+            {SHARED_MEM_BASE + 0x8000, 4096, 512, 0, 0}, /* VRING1: TX */
+        },
+    },
+};
+
+
 void arm_boot(void)
 {
     am67_mpu_initialize();
-    
     am67_lowsetup();
-    
+
     /* Then start NuttX */
-    
     nx_start();
 }
