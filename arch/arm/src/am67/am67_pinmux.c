@@ -41,7 +41,17 @@
 
 static struct pinmux_conf gpinmux_conf[] = 
 {
-    // USART0 pin config
+    // GPIO LED pin config
+    {
+        PIN_OSPI0_CSN1,
+        ( PIN_MODE(7) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+    },
+            /* GPIO0 pin config */
+    /* GPIO0_11 -> OSPI0_CSn0 (K26) */
+    {
+        PIN_OSPI0_CSN0,
+        ( PIN_MODE(7) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+    },
 
     // UART0_RXD -> UART0_RXD (F19)
     {
