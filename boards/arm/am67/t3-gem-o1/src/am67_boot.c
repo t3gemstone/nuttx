@@ -94,6 +94,6 @@ void am67_board_late_initialize(void)
 {
   /* Perform board-specific initialization */
 
-  /*am67_bringup();*/
+  /*am67_bringup(); */
 }
 #endif /* CONFIG_BOARD_LATE_INITIALIZE */

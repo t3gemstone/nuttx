@@ -1,4 +1,3 @@
-/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_pinmux.h
  *

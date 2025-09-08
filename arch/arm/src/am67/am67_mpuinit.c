@@ -11,22 +11,16 @@
 #include "am67_irq.h"
 
 
-
-
-
-
 void am67_mpu_reset(){
   for( int i =0 ; i < NUM_OF_REGION ; i++){
-    Mpu_setRegionZero(i);
+    mpu_set_region_zero(i);
   }
   
 }
 
 void am67_mpu_initialize(void)
 {
-  /* Show MPU information */
-  /*mpu_showtype();*/
-  /* Reset MPU*/
+
   mpu_control(false);
   am67_mpu_disableBR();
   am67_mpu_reset();

@@ -28,7 +28,7 @@ SECTIONS
         KEEP(*(.text.mpu_control))
         KEEP(*(.text.cp15_rdsctlr))
         KEEP(*(.text.am67_mpu_reset))
-        KEEP(*(.text.Mpu_setRegionZero))
+        KEEP(*(.text.mpu_set_region_zero))
         KEEP(*(.text.am67_mpu_disableBR))
         KEEP(*(.text.mpu_configure_region))
         KEEP(*(.text.mpu_allocregion))

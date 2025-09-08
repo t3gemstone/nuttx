@@ -1,4 +1,3 @@
-/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_clockconfig.c
  *
@@ -24,18 +23,18 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
- 
+
 #include <nuttx/config.h>
 #include <stdio.h>
 
-#include "arm_internal.h"
 #include "am67_clockconfig.h"
-#include "hardware/am67_memorymap.h"
-#include <nuttx/arch.h>
-#include "am67_timer.h"
 #include "am67_irq.h"
+#include "am67_timer.h"
+#include "arm_internal.h"
+#include "hardware/am67_memorymap.h"
 #include "irq/irq.h"
-
+#include <nuttx/arch.h>
+#include <stdint.h>
 
 /****************************************************************************
  * Private Functions
@@ -44,12 +43,9 @@
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-#include <stdint.h>
 
+void am67_clockconfig(void)
+{
+  /* all periphal clocks are setted by U-boot so we don't need to setup */
 
-
-
-
-void am67_clockconfig(){
-    /* all periphal clocks are setted by U-boot so we don't need to setup*/
 }

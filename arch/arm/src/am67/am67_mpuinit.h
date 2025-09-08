@@ -71,7 +71,7 @@ static inline void am67_mpu_disableBR(void)
 }
 
 
-static inline void Mpu_setRegionZero(uint32_t regionId)
+static inline void mpu_set_region_zero(uint32_t regionId)
 {
     register uint32_t r0 asm("r0") = regionId;
     register uint32_t r1 asm("r1") = 0;

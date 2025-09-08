@@ -1,4 +1,3 @@
-/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_pinmux.c
  *
@@ -39,7 +38,7 @@
  * Public Functions
  ****************************************************************************/
 
-static struct pinmux_conf gpinmux_conf[] = 
+static struct pinmux_conf gpinmux_conf[] =
 {
     /* GPIO LED pin config*/
     {
@@ -67,14 +66,6 @@ static struct pinmux_conf gpinmux_conf[] =
 
     {PINMUX_END, PINMUX_END}
 };
-
-/****************************************************************************
- *  pinmux_config configures the padconfig register using the given
- *  pinmux_conf. Only MAIN domain is considered in the implementation,
- *  however, I guess it is quite easy to add MCU by only changing the base 
- *  address of the related padconfig register, which is defined in am67_pinmux.h
- *  but not used here.
- *****************************************************************************/
 
 void pinmux_unlock(void)    /* Unlock to be able to modify pinmux settings*/
 {
@@ -127,6 +118,6 @@ void pinmux_config(const struct pinmux_conf *pinmux_conf)
 
 void pinmux_init(void)
 {
-    pinmux_config(gpinmux_conf);	/* Configures pinmux in main domain*/
+    pinmux_config(gpinmux_conf);    /* Configures pinmux in main domain*/
 }
 

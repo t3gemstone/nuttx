@@ -1,4 +1,3 @@
-/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_irq.h
  *
@@ -31,8 +30,8 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define HwiP_MAX_INTERRUPTS     (512u)
-#define HwiP_MAX_PRIORITY       (16u)
+#define INTR_MAX_INTERRUPTS     (512u)
+#define intr_MAX_PRIORITY       (16u)
 
 #define VIM_BIT_POS(j)   ( (j) & 0x1Fu )
 #define VIM_IRQVEC       (0x18u)
@@ -53,189 +52,185 @@
 #define ARMV7R_SVC_MODE       (0x13u)
 #define ARMV7R_SYSTEM_MODE    (0x1Fu)
 
-#define SystemP_SUCCESS   ((int32_t )0)
-#define SystemP_FAILURE   ((int32_t)-1)
-#define SystemP_TIMEOUT   ((int32_t)-2)
+#define INTR_SUCCESS   ((int32_t )0)
+#define INTR_FAILURE   ((int32_t)-1)
+#define INTR_TIMEOUT   ((int32_t)-2)
 
-#define HwiP_OBJECT_SIZE_MAX    (32u)
-
-typedef struct HwiP_Config_
+typedef struct intr_config_
 {
-    uint32_t intcBaseAddr ; /**< For R5F, this is VIM base addr */
+    
+    uint32_t intc_base_addr ; /**< For R5F, this is VIM base addr */
 
-} HwiP_Config;
+} intr_config_t;
 
 
-typedef struct HwiP_Params_ {
+typedef struct intr_Params_ {
 
-    uint32_t intNum;   /**< CPU interrupt number. */
+     /*CPU interrupt number. */
+    uint32_t int_num;  
     xcpt_t callback ;
-    void *args; /**< Arguments to pass to the callback */
-    uint16_t eventId; /**< Event ID to register against, only used with c6x with event combiner and c7x clec configurer  */
-    uint8_t priority; /**< Interrupt priority, only used with ARM R5, ARM M4 */
-    uint8_t isFIQ; /**< 0: Map interrupt as ISR, 1: map interrupt as FIQ, only used with ARM R5 */
-    uint8_t isPulse; /**< 0: Map interrupt as level interrupt, 1: Map interrupt as pulse interrupt, only used with ARM R5, ARM M4 */
+    void *args; /* Arguments to pass to the callback */
+    uint16_t event_id; /* Event ID to register against, only used with c6x with event combiner and c7x clec configurer  */
+    uint8_t priority; /* Interrupt priority, only used with ARM R5, ARM M4 */
+    uint8_t is_fiq; /* 0: Map interrupt as ISR, 1: map interrupt as FIQ, only used with ARM R5 */
+    uint8_t is_pulse; /* 0: Map interrupt as level interrupt, 1: Map interrupt as pulse interrupt, only used with ARM R5, ARM M4 */
 
-} HwiP_Params;
-
-typedef struct HwiP_Object_ {
-
-    uint32_t rsv[HwiP_OBJECT_SIZE_MAX/sizeof(uint32_t)]; /**< reserved, should NOT be modified by end users */
-
-} HwiP_Object;
-
-typedef struct HwiP_Struct_s {
-
-    uint32_t intNum;
-
-} HwiP_Struct;
-
-extern HwiP_Config gHwiConfig;
+} intr_Params;
 
 
-int HwiP_irq_handler(int irq, FAR void *context, FAR void *arg);
-int HwiP_fiq_handler(int irq, FAR void *context, FAR void *arg);
-void AM67_irq_init(void);
 
-static inline void  HwiP_setAsFIQ(uint32_t intNum, uint32_t isFIQ)
+typedef struct intr_Struct_s {
+
+    uint32_t int_num;
+
+} intr_Struct;
+
+extern intr_config_t intr_config;
+
+
+int intr_irq_handler(int irq, FAR void *context, FAR void *arg);
+int intr_fiq_handler(int irq, FAR void *context, FAR void *arg);
+void am67_irq_init(void);
+
+static inline void  intr_setAsFIQ(uint32_t int_num, uint32_t is_fiq)
 {
     volatile uint32_t *addr;
-    uint32_t bitPos;
+    uint32_t bit_pos;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_MAP(intNum));
-    bitPos = VIM_BIT_POS(intNum);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_MAP(int_num));
+    bit_pos = VIM_BIT_POS(int_num);
 
-    if(isFIQ != 0U)
+    if(is_fiq != 0U)
     {
-        *addr |= (0x1u << bitPos);
+        *addr |= (0x1u << bit_pos);
     }
     else
     {
-        *addr &= ~(0x1u << bitPos);
+        *addr &= ~(0x1u << bit_pos);
     }
 }
 
-static inline uint32_t  HwiP_isPulse(uint32_t intNum)
+static inline uint32_t  intr_is_pulse(uint32_t int_num)
 {
     volatile uint32_t *addr;
-    uint32_t bitPos;
+    uint32_t bit_pos;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_TYPE(intNum));
-    bitPos = VIM_BIT_POS(intNum);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_TYPE(int_num));
+    bit_pos = VIM_BIT_POS(int_num);
 
-    return ((*addr >> bitPos) & 0x1u );
+    return ((*addr >> bit_pos) & 0x1u );
 }
 
 
-static inline void  HwiP_setAsPulse(uint32_t intNum, uint32_t isPulse)
+static inline void  intr_setAsPulse(uint32_t int_num, uint32_t is_pulse)
 {
     volatile uint32_t *addr;
-    uint32_t bitPos;
+    uint32_t bit_pos;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_TYPE(intNum));
-    bitPos = VIM_BIT_POS(intNum);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_TYPE(int_num));
+    bit_pos = VIM_BIT_POS(int_num);
 
-    if(isPulse != 0U)
+    if(is_pulse != 0U)
     {
-        *addr |= (0x1u << bitPos);
+        *addr |= (0x1u << bit_pos);
     }
     else
     {
-        *addr &= ~(0x1u << bitPos);
+        *addr &= ~(0x1u << bit_pos);
     }
 }
 
-static inline void  HwiP_setPri(uint32_t intNum, uint32_t priority)
+static inline void  intr_setPri(uint32_t int_num, uint32_t priority)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_PRI(intNum));
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_PRI(int_num));
 
     *addr = (priority & 0xFu);
 }
 
-static inline void HwiP_setVecAddr(uint32_t intNum, uintptr_t vecAddr)
+static inline void intr_setVecAddr(uint32_t int_num, uintptr_t vecAddr)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_INT_VEC(intNum));
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_INT_VEC(int_num));
 
     *addr = ((uint32_t)vecAddr & 0xFFFFFFFCU);
 }
 
-static inline uint32_t HwiP_getIRQVecAddr(void)
+static inline uint32_t intr_get_irqVecAddr(void)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_IRQVEC);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_IRQVEC);
 
     return *addr;
 }
 
-static inline uint32_t HwiP_getFIQVecAddr(void)
+static inline uint32_t intr_get_fiqVecAddr(void)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_FIQVEC);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_FIQVEC);
 
     return *addr;
 }
 
-static inline int32_t HwiP_getIRQ(uint32_t *intNum)
+static inline int32_t intr_get_irq(uint32_t *int_num)
 {
     volatile uint32_t *addr;
-    int32_t status = SystemP_FAILURE;
+    int32_t status = INTR_FAILURE;
     uint32_t value;
 
-    *intNum = 0;
+    *int_num = 0;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_ACTIRQ);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_ACTIRQ);
     value = *addr;
 
     if((value & 0x80000000U) != 0U)
     {
-        *intNum = (value & (HwiP_MAX_INTERRUPTS-1U));
-        status = SystemP_SUCCESS;
+        *int_num = (value & (INTR_MAX_INTERRUPTS-1U));
+        status = INTR_SUCCESS;
     }
     return status;
 }
 
-static inline int32_t HwiP_getFIQ(uint32_t *intNum)
+static inline int32_t intr_get_fiq(uint32_t *int_num)
 {
     volatile uint32_t *addr;
-    int32_t status = SystemP_FAILURE;
+    int32_t status = INTR_FAILURE;
     uint32_t value;
 
-    *intNum = 0;
+    *int_num = 0;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_ACTFIQ);
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_ACTFIQ);
     value = *addr;
 
     if((value & 0x80000000U) != 0U)
     {
-        *intNum = (value & 0x3FFU);
-        status = SystemP_SUCCESS;
+        *int_num = (value & 0x3FFU);
+        status = INTR_SUCCESS;
     }
     return status;
 }
 
-static inline void HwiP_ackIRQ(uint32_t intNum)
+static inline void intr_ack_irq(uint32_t int_num)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_IRQVEC);
-    *addr= intNum;
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_IRQVEC);
+    *addr = int_num;
 }
 
-static inline void HwiP_ackFIQ(uint32_t intNum)
+static inline void intr_ack_fiq(uint32_t int_num)
 {
     volatile uint32_t *addr;
 
-    addr = (volatile uint32_t *)(gHwiConfig.intcBaseAddr + VIM_FIQVEC);
-    *addr= intNum;
+    addr = (volatile uint32_t *)(intr_config.intc_base_addr + VIM_FIQVEC);
+    *addr= int_num;
 }
 
-static inline void Utils_dataAndInstructionBarrier(void)
+static inline void utils_data_and_instruction_barrier(void)
 {
     __asm__ __volatile__(
         " isb"
@@ -252,7 +247,7 @@ static inline void Utils_dataAndInstructionBarrier(void)
 }
 
 
-static inline void AM67_disableIRQ(void)
+static inline void am67_disable_irq(void)
 {
     unsigned int cpsr;
     asm volatile(
@@ -265,7 +260,7 @@ static inline void AM67_disableIRQ(void)
     );
 }
 
-static inline void AM67_disableFIQ(void) {
+static inline void am67_disable_fiq(void) {
     unsigned int cpsr;
     __asm__ volatile (
         "mrs %0, cpsr\n\t"           /* Read CPSR into cpsr variable*/
@@ -278,7 +273,7 @@ static inline void AM67_disableFIQ(void) {
 }
 
 
-static inline void AM67_enableFIQ(void)
+static inline void am67_enable_fiq(void)
 {
     unsigned int cpsr;
     asm volatile(
@@ -292,7 +287,7 @@ static inline void AM67_enableFIQ(void)
 }
 
 
-static inline void AM67_enableIRQ(void)
+static inline void am67_enable_irq(void)
 {
     unsigned int cpsr;
     asm volatile(
@@ -305,7 +300,7 @@ static inline void AM67_enableIRQ(void)
     );
 }
 
-static inline void AM67_enableVIC(void)
+static inline void am67_enable_vic(void)
 {
     unsigned int sctlr;
     asm volatile(

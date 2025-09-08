@@ -70,7 +70,6 @@
 
 void arm_serialinit(void)
 {
-    
     u16550_earlyserialinit();
     u16550_serialinit();
     open_uart();
