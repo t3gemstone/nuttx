@@ -33,39 +33,37 @@
 #include "am67_rsc.h"
 #include "arm.h"
 
+/* Resource table for RemoteProc */
 
+__attribute__((section(".resource_table")))
+volatile const struct resource_table rsc_table =
+{
+  .ver = 1,
+  .num = 1,  /* One resource entry (Virtio device) */
+  .reserved = {0, 0},
+  .offset = {
+    offsetof(struct resource_table, vdev), /* Offset to Virtio device */
+  },
+  .vdev = {
+      .type = RSC_VDEV,
+      .id = VIRTIO_ID_RPMSG,
+      .notifyid = 0,
+      .dfeatures = 0,
+      .gfeatures = 0,
+      .config_len = 0,
+      .status = 0,
+      .num_of_vrings = 2,
+      .reserved = {0, 0},
+      .vring = {
+        {SHARED_MEM_BASE, 4096, 512, 0, 0}, /* VRING0: RX */
+        {SHARED_MEM_BASE + 0x8000, 4096, 512, 0, 0}, /* VRING1: TX */
+      },
+  },
+};
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
-
-
-/*Resource table for RemoteProc */
-
-__attribute__((section(".resource_table")))
-volatile const struct resource_table rsc_table = {
-    .ver = 1,
-    .num = 1,  /* One resource entry (Virtio device) */
-    .reserved = {0, 0},
-    .offset = {
-        offsetof(struct resource_table, vdev), /* Offset to Virtio device */
-    },
-    .vdev = {
-        .type = RSC_VDEV,
-        .id = VIRTIO_ID_RPMSG,
-        .notifyid = 0,
-        .dfeatures = 0,
-        .gfeatures = 0,
-        .config_len = 0,
-        .status = 0,
-        .num_of_vrings = 2,
-        .reserved = {0, 0},
-        .vring = {
-            {SHARED_MEM_BASE, 4096, 512, 0, 0}, /* VRING0: RX */
-            {SHARED_MEM_BASE + 0x8000, 4096, 512, 0, 0}, /* VRING1: TX */
-        },
-    },
-};
 
 /****************************************************************************
  * Name: arm_boot
@@ -93,13 +91,13 @@ volatile const struct resource_table rsc_table = {
  ****************************************************************************/
 void arm_boot(void)
 {
-    /*Configure the MPU to permit user-space access to its ATCM, BTCM and DDR section */
+  /*Configure the MPU to permit user-space access to its ATCM, BTCM and DDR section */
 
-    am67_mpu_initialize();
-    
-    /*do lowsetup for getting UART as soon as early*/
-    am67_lowsetup();
+  am67_mpu_initialize();
+  
+  /*do lowsetup for getting UART as soon as early*/
+  am67_lowsetup();
 
-    /* Then start NuttX */
-    nx_start();
+  /* Then start NuttX */
+  nx_start();
 }
