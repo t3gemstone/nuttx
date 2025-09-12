@@ -68,7 +68,7 @@
  * Name: open_uart
  ****************************************************************************/
 void open_uart(void){
-    volatile uint32_t *reg = (volatile uint32_t *)(0x0002800000 + 0x20);
+    volatile uint32_t *reg = (volatile uint32_t *)(CONFIG_16550_UART0_BASE + 0x20);
     *reg = 0;
 }
 

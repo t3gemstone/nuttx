@@ -55,20 +55,35 @@ static struct pinmux_conf gpinmux_conf[] =
         ( PIN_MODE(7) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
     },
 
-    /* UART0_RXD -> UART0_RXD (F19)*/
 
 
+     /* UART1_RXD -> MCASP0_AFSR (C27) */
     {
-        PIN_UART0_RXD,
-        ( PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+        PIN_MCASP0_AFSR,
+        ( PIN_MODE(2) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+    },
+    /* UART1_TXD -> MCASP0_ACLKR (F24) */
+    {
+        PIN_MCASP0_ACLKR,
+        ( PIN_MODE(2) | PIN_PULL_DISABLE )
     },
 
-    /* UART0_TXD -> UART0_TXD (F20)*/
 
-    {
-        PIN_UART0_TXD,
-        ( PIN_MODE(0) | PIN_PULL_DISABLE )
-    },
+
+
+    // /* UART0_RXD -> UART0_RXD (F19)*/
+
+    // {
+    //     PIN_UART0_RXD,
+    //     ( PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+    // },
+
+    // /* UART0_TXD -> UART0_TXD (F20)*/
+
+    // {
+    //     PIN_UART0_TXD,
+    //     ( PIN_MODE(0) | PIN_PULL_DISABLE )
+    // },
 
     {PINMUX_END, PINMUX_END}
 };
