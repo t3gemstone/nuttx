@@ -1,6 +1,5 @@
-/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
- * arch/arm/src/am67/am67_timerisr.c
+ * arch/arm/src/am67/am67_timer.c
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -25,6 +24,7 @@
  * Included Files
  ****************************************************************************/
 
+#include <fcntl.h>
 #include <nuttx/config.h>
 #include <nuttx/timers/arch_alarm.h>
 
@@ -36,147 +36,249 @@
 #include "am67_timer.h"
 #include "am67_clockconfig.h"
 #include "am67_irq.h"
- 
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Function:  up_timer_initialize
- *
- * Description:
- *   This function is called during start-up to initialize
- *   the timer interrupt.
- *
+ * Name: up_timer_initialize
  ****************************************************************************/
-
-
 void up_timer_initialize(void)
 {
-    // Set timer clock source
-    clock_unlock();
-     *(volatile uint32_t *)(TIMER0_CLOCK_SRC_MUX_ADDR) = TIMER0_CLOCK_SRC_HFOSC0_CLKOUT;
-    clock_lock();
-    clock_init();
-    clock_construct();
-    clock_start();
-    
-    irq_attach(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0, (xcpt_t)timer_tick_isr, NULL);
-    
-    intr_enable();  // We disabled the interrupts during interrupt
-                    // initialization, so we enable it here now
-    
+    timer_params params;
+
+    am67_timer_params_init(&params);
+
+    up_disable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
+    irq_attach(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0, timer_tick_isr, NULL);
+
+    am67_timer_stop(AM67_DMTIMER1_1MS_TIMER0_VADDR);
+    am67_timer_setup(AM67_DMTIMER1_1MS_TIMER0_VADDR,&params);
+    am67_timer_start(AM67_DMTIMER1_1MS_TIMER0_VADDR);    
+
     up_enable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
 }
 
 
+/****************************************************************************
+ * Name: timer_tick_isr
+ ****************************************************************************/
+__attribute__((section(".tickTimer")))
+int timer_tick_isr(int irq, void *context, void *arg)
+{ 
+    am67_timer_clearOverflowInt(AM67_DMTIMER1_1MS_TIMER0_VADDR);
+   
+    nxsched_process_timer();
+    return OK;
+}
+
+
+
+/****************************************************************************
+ * Name: up_timer_gettime
+ ****************************************************************************/
 int up_timer_gettime(struct timespec* ts)
 {
-	return get_count(TIMER0_BASE_ADDR);
+	return am67_timer_getCount(AM67_DMTIMER1_1MS_TIMER0_VADDR);
 }
 
+/****************************************************************************
+ * Name: up_timer_start
+ ****************************************************************************/
 int up_timer_start(struct timespec const* ts)
 {
-	timer_start(TIMER0_BASE_ADDR);
+	am67_timer_start(AM67_DMTIMER1_1MS_TIMER0_VADDR);
 	return 0;
 }
 
+/****************************************************************************
+ * Name: up_timer_cancel
+ ****************************************************************************/
 int up_timer_cancel(struct timespec* ts)
 {
-	timer_stop(TIMER0_BASE_ADDR);
+	am67_timer_stop(AM67_DMTIMER1_1MS_TIMER0_VADDR);
 	return 0;
 }
 
-void timer_start(uint32_t base_addr)
+
+/****************************************************************************
+ * Name: am67_timer_params_init
+ ****************************************************************************/
+void am67_timer_params_init(timer_params *params)
 {
-    volatile uint32_t *addr = (uint32_t *)(base_addr + TIMER_TCLR_OFFSET);
-
-    // Start
-    *addr |= (0x1U << 0);
-
+    params->inputPreScaler = 1;
+    params->inputClkHz = 25*1000000;
+    params->periodInUsec = 1000;
+    params->periodInNsec = 0; /* periodInUsec is used when periodInNsec is 0 */
+    params->oneshotMode = 0;
+    params->enableOverflowInt = 1;
+    params->enableDmaTrigger = 0; /* NOT USED */
 }
 
-void timer_stop(uint32_t base_addr)
-{
-    volatile uint32_t *addr = (volatile uint32_t *)(base_addr + TIMER_TCLR_OFFSET);
-
-    // Stop
-    *addr &= ~(0x1U << 0);
-}
-
-uint32_t get_count(uint32_t base_addr)
-{
-    volatile uint32_t *addr = (volatile uint32_t *)(base_addr + TIMER_TCRR_OFFSET);
-    return *addr;
-}
-
-uint32_t get_reload(uint32_t base_addr)
-{
-    volatile uint32_t *addr = (volatile uint32_t *)(base_addr + TIMER_TLDR_OFFSET);
-    return *addr;
-}
-
-void clear_overflow_int(uint32_t base_addr)
+/****************************************************************************
+ * Name: am67_timer_setup
+ ****************************************************************************/
+void am67_timer_setup(uint32_t baseAddr, timer_params *params)
 {
     volatile uint32_t *addr;
-    uint32_t value = (0x1U << TIMER_OVF_INT_SHIFT);
+    uint32_t ctrlVal;
+    uint32_t countVal, reloadVal;
+    uint64_t timeInNsec, inputClkHz, timerCycles;
+
     
-    addr = (volatile uint32_t *)(base_addr + TIMER_IRQ_STATUS);
-    *addr = value;
-}
 
-uint32_t is_overflowed(uint32_t base_addr)
-{
-    uint32_t val;
-    
-    val = *(volatile uint32_t *)(base_addr + TIMER_IRQ_STATUS_RAW);
-    
-    return ((val >> TIMER_OVF_INT_SHIFT) & 0x1U);
-}
+    /* stop timer and clear pending interrupts */
+    am67_timer_stop(baseAddr);
+    am67_timer_clearOverflowInt(baseAddr);
 
-void timer_setup(uint32_t base_addr, struct timer *params)
-{    
-    volatile uint32_t *addr;
-    uint32_t clock_hz, reload_value, ctrl_value, count_value, cycles;
-
-    timer_stop(base_addr);
-    clear_overflow_int(base_addr);
-
-    clock_hz = params-> clock_hz / params->prescaler;
-    cycles = (clock_hz * params->period_usec) / 1000000U;
-
-    count_value = 0xFFFFFFFFu - (uint32_t)cycles - 1U;
-    count_value = 0x0;
-
-    reload_value = 0;
-    ctrl_value = 0;
-
-    if (params->one_shot == 0U)     // Autoreload
+    timeInNsec = (uint64_t)params->periodInNsec;
+    if(timeInNsec == 0U)
     {
-        ctrl_value |= (0x1U << 1);
-        reload_value = count_value;
+        timeInNsec = params->periodInUsec*1000U;
     }
 
-    // Set the timer control
-    addr = (volatile uint32_t *)(base_addr + TIMER_TCLR_OFFSET);
-    *addr = ctrl_value;
+    inputClkHz = params->inputClkHz / params->inputPreScaler;
+    timerCycles =  ( inputClkHz * timeInNsec ) / 1000000000U;
 
-    // Set the timer count
-    addr = (volatile uint32_t *)(base_addr + TIMER_TCRR_OFFSET);
-    *addr = count_value;
+    /* if timerCycles > 32b then we cannot give accurate timing */
 
-    // Set the reload
-    addr = (volatile uint32_t *)(base_addr + TIMER_TLDR_OFFSET);
-    *addr = reload_value;
+    /* calculate count and reload value register value */
+    countVal = 0xFFFFFFFFu - (uint32_t)timerCycles - 1U;
 
-    if((bool)params->overflow_intr == true)
+    /* keep reload value as 0, later if is auto-reload is enabled, it will be set a value > 0 */
+    reloadVal = 0;
+
+    /* calculate control register value, keep timer disabled */
+    ctrlVal = 0;
+    if(params->inputPreScaler>1U)
     {
-        addr = (volatile uint32_t *)(base_addr + TIMER_IRQ_INT_ENABLE);
+        uint32_t preScaleVal;
+
+        for(preScaleVal=8; preScaleVal>=1U; preScaleVal--)
+        {
+            if( (params->inputPreScaler & (0x1U << preScaleVal)) != 0U )
+            {
+                break;
+            }
+        }
+
+        /* enable pre-scaler */
+        ctrlVal |= (0x1U << 5);
+        /* set pre-scaler value */
+        ctrlVal |= ( ((preScaleVal - 1U) & 0x7U) << 2);
+    }
+    if(params->oneshotMode==0U)
+    {
+        /* autoreload timer */
+        ctrlVal |= (0x1U << 1);
+        reloadVal = countVal;
+    }
+
+    /* set timer control value */
+    addr = (volatile uint32_t *)(baseAddr + TIMER_TCLR);
+    *addr = ctrlVal;
+
+    /* set timer count value */
+    addr = (volatile uint32_t *)(baseAddr + TIMER_TCRR);
+    *addr = countVal;
+
+    /* set reload value */
+    addr = (volatile uint32_t *)(baseAddr + TIMER_TLDR);
+    *addr = reloadVal;
+
+    /* enable/disable interrupts */
+    if((bool)params->enableOverflowInt == true)
+    {
+        /* enable interrupt */
+        addr = (volatile uint32_t *)(baseAddr + TIMER_IRQ_INT_ENABLE);
         *addr = (0x1U << TIMER_OVF_INT_SHIFT);
     }
     else
     {
-        addr = (volatile uint32_t *)(base_addr + TIMER_IRQ_INT_DISABLE);
+        /* disable interrupt */
+        addr = (volatile uint32_t *)(baseAddr + TIMER_IRQ_INT_DISABLE);
         *addr = (0x1U << TIMER_OVF_INT_SHIFT);
     }
+}
+
+/****************************************************************************
+ * Name: am67_timer_start
+ ****************************************************************************/
+void am67_timer_start(uint32_t baseAddr)
+{
+    volatile uint32_t *addr = (uint32_t *)(baseAddr + TIMER_TCLR);
+
+    /* start timer */
+    *addr |= (0x1U << 0);
+}
+
+/****************************************************************************
+ * Name: am67_timer_stop
+ ****************************************************************************/
+void am67_timer_stop(uint32_t baseAddr)
+{
+    volatile uint32_t *addr = (volatile uint32_t *)(baseAddr + TIMER_TCLR);
+
+    /* stop timer */
+    *addr &= ~(0x1U << 0);
+}
+
+/****************************************************************************
+ * Name: am67_timer_getCount
+ ****************************************************************************/
+uint32_t am67_timer_getCount(uint32_t baseAddr)
+{
+    volatile uint32_t *addr = (volatile uint32_t *)(baseAddr + TIMER_TCRR);
+
+    return *addr;
+}
+
+/****************************************************************************
+ * Name: am67_timer_getReloadCount
+ ****************************************************************************/
+uint32_t am67_timer_getReloadCount(uint32_t baseAddr)
+{
+    volatile uint32_t *addr = (volatile uint32_t *)(baseAddr + TIMER_TLDR);
+
+    return *addr;
+}
+
+/****************************************************************************
+ * Name: am67_timer_clearOverflowInt
+ ****************************************************************************/
+void am67_timer_clearOverflowInt(uint32_t baseAddr)
+{
+    volatile uint32_t *addr;
+    uint32_t value = (0x1U << TIMER_OVF_INT_SHIFT);
+
+    /* clear status for overflow interrupt */
+    addr = (volatile uint32_t *)(baseAddr + TIMER_IRQ_STATUS);
+    *addr = value;
+
+    /* read back and make sure interrupt was indeed cleared, if not clear it again */
+    if((bool)(*addr & value) == true)
+    {
+        *addr = value;
+    }
+
+    #if 0 /* should not be used for level interrupts */
+    /* apply SW EOI */
+    addr = (volatile uint32_t *)(baseAddr + TIMER_IRQ_EOI);
+    *addr = 0;
+    #endif
+
+}
+
+/****************************************************************************
+ * Name: am67_timer_isOverflowed
+ ****************************************************************************/
+uint32_t am67_timer_isOverflowed(uint32_t baseAddr)
+{
+    uint32_t val;
+
+    /* get status for overflow interrupt */
+    val = *(volatile uint32_t *)(baseAddr + TIMER_IRQ_STATUS_RAW);
+
+    return ((val >> TIMER_OVF_INT_SHIFT) & 0x1U);
 }

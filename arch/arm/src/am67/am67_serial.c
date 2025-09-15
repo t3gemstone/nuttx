@@ -46,7 +46,7 @@
  * Pre-processor definitions
  ****************************************************************************/
 
-#if defined(USE_SERIALDRIVER) // && defined(HAVE_UART_DEVICE)
+#if defined(USE_SERIALDRIVER) /* && defined(HAVE_UART_DEVICE)*/
 
 /****************************************************************************
  * Private Types
@@ -65,21 +65,40 @@
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: open_uart
+ ****************************************************************************/
+void open_uart(void){
+    volatile uint32_t *reg = (volatile uint32_t *)(CONFIG_16550_UART0_BASE + 0x20);
+    *reg = 0;
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
+/****************************************************************************
+ * Name: arm_serialinit
+ ****************************************************************************/
 void arm_serialinit(void)
 {
     u16550_earlyserialinit();
     u16550_serialinit();
+    open_uart();
 }
 
+/****************************************************************************
+ * Name: uart_getreg
+ ****************************************************************************/
 uart_datawidth_t uart_getreg(FAR struct u16550_s *priv, unsigned int offset)
 {
     volatile uint32_t *reg = (volatile uint32_t *)(priv->uartbase + offset);
     return *reg;
 }
 
+
+/****************************************************************************
+ * Name: uart_putreg
+ ****************************************************************************/
 void uart_putreg(FAR struct u16550_s *priv, unsigned int offset, uart_datawidth_t value)
 {
     volatile uint32_t *reg = (volatile uint32_t *)(priv->uartbase + offset);

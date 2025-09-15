@@ -1,60 +1,58 @@
-/****************************************************************************
- * boards/arm/am335x/beaglebone-black/scripts/sdram.ld
- *
- * SPDX-License-Identifier: Apache-2.0
- *
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.  The
- * ASF licenses this file to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the
- * License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
- * License for the specific language governing permissions and limitations
- * under the License.
- *
- ****************************************************************************/
-
-/* The Beaglebone Black and 512MB of SDRAM beginning at virtual address
- * 0x8000:0000. Execution begins at address 0x8a00000, leaving 352MB for NuttX.+
- *
- * Vectors in low memory are assumed and 16KB of OCMC0 is reserved at the
- * high end of OCMC0 for the page table.
- */
 
 MEMORY
 {
-  ATCM    (rx)  : ORIGIN = 0x00000000, LENGTH = 64K   /* code + vectors */
-  BAYRAM  (rw)  : ORIGIN = 0x00010000, LENGTH = 1090519040   /* registers */
-  BTCM    (rwx) : ORIGIN = 0x41010000, LENGTH = 64K   /* data/bss/stacks */
-  MSRAM   (rwx) : ORIGIN = 0x0079100000, LENGTH = 512K
+  ATCM    (rwx) : ORIGIN = 0x00000000, LENGTH = 32K   /* code + vectors */
+  BTCM    (rwx) : ORIGIN = 0x41010000, LENGTH = 32K   /* data/bss/stacks */
+  RSC     (rwx) : ORIGIN = 0xA2100000, LENGTH = 1K  /* Main SDRAM for code and data */
+  MSRAM   (rwx) : ORIGIN = 0xA2200000, LENGTH = 0xE00000 
 }
-
-EXTERN(_vectors)
-ENTRY(entry)
-ENTRY(_stext)
+EXTERN(_vector_start)
+ENTRY(_vector_start)
 
 SECTIONS
 {
-    .interrupts :
+    .resource_table :
     {
-        __VECTOR_TABLE = .;
-        __Vectors = .;
-        . = ALIGN(4);
-        KEEP(*(.vectors))     /* Startup code */
-        . = ALIGN(4);
+        KEEP(*(.resource_table))
+        . = ALIGN(1024);
+    } > RSC 
+
+    .vectors :
+    {
+        
+        _stext = ABSOLUTE(.);
+        KEEP(*(.vectors))
+        KEEP(*arm_head*.o(.text))
+        KEEP(*(.text.arm_boot))
+        KEEP(*(.text.am67_mpu_initialize))
+        KEEP(*(.text.mpu_control))
+        KEEP(*(.text.cp15_rdsctlr))
+        KEEP(*(.text.am67_mpu_reset))
+        KEEP(*(.text.mpu_set_region_zero))
+        KEEP(*(.text.am67_mpu_disableBR))
+        KEEP(*(.text.mpu_configure_region))
+        KEEP(*(.text.mpu_allocregion))
+        KEEP(*(.text.mpu_modify_region))
+        KEEP(*(.text.mpu_set_rgnr))
+        KEEP(*(.text.mpu_set_drbar))
+        KEEP(*(.text.mpu_log2regionceil))
+        KEEP(*(.text.mpu_subregion))
+        KEEP(*(.text.mpu_subregion_ms))
+        KEEP(*(.text.mpu_subregion_ls))
+        KEEP(*(.text.mpu_set_drsr))
+        KEEP(*(.text.mpu_set_dracr))
+        KEEP(*(.text.cp15_wrsctlr))
+        KEEP(*(.text.nx_start))
+        KEEP(*(.tickTimer))
+        KEEP(*(.text.nxsched_process_timer))
+        KEEP(*(.text.clock_timer))
+        KEEP(*(.text.wd_timer))
+        KEEP(*(.text.clock_systime_ticks))
     } > ATCM
 
-    .text :
-    {
-        _stext = ABSOLUTE(.);
-        *(.vectors)
-        *(.text .text.*)
+    .text_ddr :
+    {   
+        *(.text .text.*) 
         *(.fixup)
         *(.gnu.warning)
         *(.rodata .rodata.*)
@@ -83,12 +81,11 @@ SECTIONS
     } > MSRAM
 
     /* .ARM.exidx is sorted, so has to go in its own output section.  */
-
     PROVIDE_HIDDEN (__exidx_start = .);
     .ARM.exidx :
     {
         *(.ARM.exidx* .gnu.linkonce.armexidx.*)
-    } > MSRAM
+    } > MSRAM 
     PROVIDE_HIDDEN (__exidx_end = .);
 
     .data :
@@ -99,16 +96,15 @@ SECTIONS
         CONSTRUCTORS
         . = ALIGN(4);
         _edata = ABSOLUTE(.);
-    } > MSRAM
+    } > MSRAM 
 
     /* Uninitialized data */
-
     .noinit :
     {
         _snoinit = ABSOLUTE(.);
         *(.noinit*)
         _enoinit = ABSOLUTE(.);
-    } > MSRAM
+    } > MSRAM 
 
     .bss :
     {
@@ -118,10 +114,10 @@ SECTIONS
         *(COMMON)
         . = ALIGN(4);
         _ebss = ABSOLUTE(.);
-    } > MSRAM
+        
+    } > MSRAM 
 
     /* Stabs debugging sections. */
-
     .stab 0 : { *(.stab) }
     .stabstr 0 : { *(.stabstr) }
     .stab.excl 0 : { *(.stab.excl) }
@@ -135,3 +131,4 @@ SECTIONS
     .debug_pubnames 0 : { *(.debug_pubnames) }
     .debug_aranges 0 : { *(.debug_aranges) }
 }
+

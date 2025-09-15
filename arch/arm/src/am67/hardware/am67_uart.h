@@ -64,9 +64,9 @@
 #define AM67_UART_RXFIFO_LVL_OFFSET 0x064 /* UART Received FIFO Level Register */
 #define AM67_UART_TXFIFO_LVL_OFFSET 0x068 /* UART Transmit FIFO Level Register */
 
-#define UART_LSR_THRE               (1 << 5) /* TX Holding Register Empty) */
+#define UART_LSR_THRE               (1 << 5) /* TX Holding Register Empty */
 
-// #define UART_IER_ALLIE (0x000000cf) // Old UART driver uses that.
+/* #define UART_IER_ALLIE (0x000000cf) // Old UART driver uses that.*/
 
 /****************************************************************************************************
 * Register Definitions

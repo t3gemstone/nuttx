@@ -49,7 +49,6 @@
  *   Output one byte on the serial console
  *
  ****************************************************************************/
-
 void arm_lowputc(char ch)
 {
     /* Wait for the transmitter to be available */
@@ -77,7 +76,6 @@ void arm_lowputc(char ch)
  *   as possible.
  *
  ****************************************************************************/
-
 void am67_lowsetup(void)
 {
     pinmux_init();

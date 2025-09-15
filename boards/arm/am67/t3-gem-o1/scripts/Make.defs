@@ -25,9 +25,11 @@ include $(TOPDIR)/tools/Config.mk
 include $(TOPDIR)/arch/arm/src/armv7-r/Toolchain.defs
 
 LDSCRIPT = sdram.ld
+LDFLAGS := $(filter-out --entry=__start, $(LDFLAGS))
+LDFLAGS += --entry=_vector_start
 ARCHSCRIPT += $(BOARD_DIR)$(DELIM)scripts$(DELIM)$(LDSCRIPT)
 
-ARCHPICFLAGS = -fpic -msingle-pic-base -mpic-register=r10
+ARCHPICFLAGS = -fpic -msingle-pic-base -mpic-register=r10 -ffixed-r10
 
 CFLAGS := $(ARCHCFLAGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRAFLAGS)
 CPICFLAGS = $(ARCHPICFLAGS) $(CFLAGS)

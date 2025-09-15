@@ -22,7 +22,7 @@
 
 include $(TOPDIR)/Make.defs
 
-CSRCS = am67_boot.c am67_bringup.c am67_appinit.c
+CSRCS = am67_bringup.c am67_appinit.c
 
 #ifeq ($(CONFIG_BOARDCTL),y)
 #CSRCS += am67_appinit.c

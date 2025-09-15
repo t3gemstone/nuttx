@@ -1,4 +1,3 @@
-/* Copyright (C) 2021 Texas Instruments Incorporated */
 /****************************************************************************
  * arch/arm/src/am67/am67_pinmux.c
  *
@@ -36,62 +35,93 @@
 #include "am67_pinmux.h"
 
 /****************************************************************************
- * Public Functions
+ * Private Functions
  ****************************************************************************/
 
-static struct pinmux_conf gpinmux_conf[] = 
+static struct pinmux_conf gpinmux_conf[] =
 {
-    // USART0 pin config
+    /* GPIO0_12 -> PIN_OSPI0_CSN1 (K23) */
 
-    // UART0_RXD -> UART0_RXD (F19)
     {
-        PIN_UART0_RXD,
-        ( PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+        PIN_OSPI0_CSN1,
+        ( PIN_MODE(7) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+    },
+            
+
+    /* GPIO0_11 -> OSPI0_CSn0 (K26) */
+
+    {
+        PIN_OSPI0_CSN0,
+        ( PIN_MODE(7) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
     },
 
-    // UART0_TXD -> UART0_TXD (F20)
+
+
+     /* UART1_RXD -> MCASP0_AFSR (C27) */
     {
-        PIN_UART0_TXD,
-        ( PIN_MODE(0) | PIN_PULL_DISABLE )
+        PIN_MCASP0_AFSR,
+        ( PIN_MODE(2) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
     },
+    /* UART1_TXD -> MCASP0_ACLKR (F24) */
+    {
+        PIN_MCASP0_ACLKR,
+        ( PIN_MODE(2) | PIN_PULL_DISABLE )
+    },
+
+
+
+
+    // /* UART0_RXD -> UART0_RXD (F19)*/
+
+    // {
+    //     PIN_UART0_RXD,
+    //     ( PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE )
+    // },
+
+    // /* UART0_TXD -> UART0_TXD (F20)*/
+
+    // {
+    //     PIN_UART0_TXD,
+    //     ( PIN_MODE(0) | PIN_PULL_DISABLE )
+    // },
 
     {PINMUX_END, PINMUX_END}
 };
 
-/****************************************************************************
- *  pinmux_config configures the padconfig register using the given
- *  pinmux_conf. Only MAIN domain is considered in the implementation,
- *  however, I guess it is quite easy to add MCU by only changing the base 
- *  address of the related padconfig register, which is defined in am67_pinmux.h
- *  but not used here.
- *****************************************************************************/
-
-void pinmux_unlock(void)    // Unlock to be able to modify pinmux settings
+void pinmux_unlock(void)    /* Unlock to be able to modify pinmux settings*/
 {
     uint32_t base_addr;
     volatile uint32_t *kick_addr;
 
     base_addr = CSL_PADCFG_CTRL0_CFG0_BASE;
 
-    // Lock 0
+    /* Lock 0*/
+
     kick_addr = (volatile uint32_t *)(base_addr + CSL_MAIN_PADCONFIG_LOCK0_KICK0_OFFSET);
     CSL_REG32_WR(kick_addr, KICK0_UNLOCK_VAL);
     kick_addr++;
     CSL_REG32_WR(kick_addr, KICK1_UNLOCK_VAL);
 
-    // Lock 1
+    /* Lock 1*/
+
     kick_addr = (volatile uint32_t *)(base_addr + CSL_MAIN_PADCONFIG_LOCK1_KICK0_OFFSET);
     CSL_REG32_WR(kick_addr, KICK0_UNLOCK_VAL);
     kick_addr++;
     CSL_REG32_WR(kick_addr, KICK1_UNLOCK_VAL);
 }
 
+/****************************************************************************
+ * Name: pinmux_lock
+ ****************************************************************************/
 void pinmux_lock(void)
 {
-    // I guess some SoCs do not need that,
-    // implement later if needed.
+    /* I guess some SoCs do not need that,*/
+    /* implement later if needed.*/
 }
 
+/****************************************************************************
+ * Name: pinmux_config
+ ****************************************************************************/
 void pinmux_config(const struct pinmux_conf *pinmux_conf)
 {
     uint32_t base_addr;
@@ -101,22 +131,37 @@ void pinmux_config(const struct pinmux_conf *pinmux_conf)
     {
         base_addr = CSL_PADCFG_CTRL0_CFG0_BASE + PADCFG_PMUX_OFFSET;
 
-        // There is an address translation here actually, add if needed later.
+        /* There is an address translation here actually, add if needed later.*/
 
         pinmux_unlock();
-        while (pinmux_conf->offset != PINMUX_END)     // Set all the configuration fields
+
+        while (pinmux_conf->offset != PINMUX_END)
         {
+            /* Set all the configuration fields*/
+
             reg_addr = (volatile uint32_t *)(base_addr + pinmux_conf->offset);
             CSL_REG32_WR(reg_addr, pinmux_conf->setting);
             pinmux_conf++;
+            
         }
         pinmux_lock();
     }
 }
 
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: pinmux_init
+ * Description
+ * initiliaze Pin Configuration according to pin table. 
+ ****************************************************************************/
 
 void pinmux_init(void)
 {
-    pinmux_config(gpinmux_conf);	// Configures pinmux in main domain
+     /* Configures pinmux */
+
+    pinmux_config(gpinmux_conf);   
 }
 

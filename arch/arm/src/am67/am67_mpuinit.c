@@ -1,6 +1,5 @@
-/****************************************************************************
- * boards/arm/am67/t3-gem-o1/src/am67_boot.c
- *
+ /****************************************************************************
+ * arch/arm/src/am67/am67_mpuinit.c
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -23,77 +22,75 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-
 #include <nuttx/config.h>
-
-#include <debug.h>
-
-#include <nuttx/board.h>
-
-#include "t3-gem-o1.h"
+#include <assert.h>
+#include <stdint.h>
+#include <sys/param.h>
+#include <nuttx/userspace.h>
+#include <arch/barriers.h>
+#include "mpu.h"
+#include "hardware/am67_memorymap.h"
+#include "am67_mpuinit.h"
+#include "arm_internal.h"
+#include "am67_irq.h"
 
 /****************************************************************************
- * Public Functions
+ * Private Function 
  ****************************************************************************/
 
 /****************************************************************************
- * Name: am67_memory_initialize
- *
+ * Name: am67_mpu_reset
  * Description:
- *   All AM67 architectures must provide the following entry point.  This
- *   entry point is called early in the initialization before memory has
- *   been configured.  This board-specific function is responsible for
- *   configuring any on-board memories.
- *
- *   Logic in am67_memory_initialize must be careful to avoid using any
- *   global variables because those will be uninitialized at the time this
- *   function is called.
- *
- * Input Parameters:
- *   None
- *
- * Returned Value:
- *   None
- *
+ * It sets the region to zero to clear it. Zero means the default value of the region attributes; you will need to set them as desired afterward.
  ****************************************************************************/
-
-void am67_memory_initialize(void)
-{
+void am67_mpu_reset(void){
+  for( int i =0 ; i < NUM_OF_REGION ; i++){
+    mpu_set_region_zero(i);
+  }
+  
 }
 
 /****************************************************************************
- * Name: am67_board_initialize
- *
- * Description:
- *   All AM67 architectures must provide the following entry point.
- *   This entry point is called early in the initialization -- after all
- *   memory has been configured and mapped but before any devices have been
- *   initialized.
- *
+ * Public Function 
  ****************************************************************************/
-
-void am67_board_initialize(void)
-{
-}
 
 /****************************************************************************
- * Name: board_late_initialize
+ * Name: am67_mpu_initialize
  *
  * Description:
- *   If CONFIG_BOARD_LATE_INITIALIZE is selected, then an additional
- *   initialization call will be performed in the boot-up sequence to a
- *   function called board_late_initialize(). board_late_initialize() will be
- *   called immediately after up_initialize() is called and just before the
- *   initial application is started.  This additional initialization phase
- *   may be used, for example, to initialize board-specific device drivers.
+ *   Configure the MPU according to the given region. The regions are: ATCM, BTCM, MSRAM, and DDR.
  *
  ****************************************************************************/
-
-#ifdef CONFIG_BOARD_LATE_INITIALIZE
-void am67_board_late_initialize(void)
+void am67_mpu_initialize(void)
 {
-  /* Perform board-specific initialization */
 
-  //am67_bringup();
+  /*turn off the MPU*/
+
+  mpu_control(false);
+
+  /*Disable Background Region*/
+
+  am67_mpu_disableBR();
+
+  /* Clear region's attributes and set to 0 */
+  am67_mpu_reset();
+
+  /*Set regions according to given attributes */
+
+  am67_register_region(ARM67_REGISTER_START_ADDR,ARM67_REGISTER_SIZE);
+  
+  am67_tcma_region(ARM67_TCMA_START_ADDR,ARM67_TCMA_SIZE);
+
+  am67_tcmb_region(ARM67_TCMB_START_ADDR, ARM67_TCMB_SIZE);
+  
+  am67_mcu_msram_region(ARM67_MCU_MSRAM_START_ADDR, ARM67_MCU_MSRAM_SIZE);
+  
+  am67_ddr_region(ARM67_DDR_START_ADDR, ARM67_DDR_SIZE);
+
+  /*turn on the MPU*/
+
+  mpu_control(true);
+  
+  return;
 }
-#endif /* CONFIG_BOARD_LATE_INITIALIZE */
+

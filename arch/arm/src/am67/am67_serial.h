@@ -29,7 +29,6 @@
  
 #include <nuttx/config.h>
 #include <arch/board/board.h>
-
 #include "hardware/am67_uart.h"
 
 /****************************************************************************
@@ -37,5 +36,7 @@
  ****************************************************************************/
 
 void arm_earlyserialinit(void);
+
+void open_uart(void);
 
 #endif /* __ARCH_ARM_SRC_AM67_AM67_SERIAL_H */
