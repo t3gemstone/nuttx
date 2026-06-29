@@ -25,8 +25,14 @@ include armv7-r/Make.defs
 LDFLAGS += --entry=_vector_start
 
 CHIP_CSRCS += am67_boot.c
+ifeq ($(CONFIG_AM67_GPIO),y)
+CHIP_CSRCS += am67_gpio.c
+endif
 CHIP_CSRCS += am67_irq.c
 CHIP_CSRCS += am67_mpuinit.c
 CHIP_CSRCS += am67_pinmux.c
 CHIP_CSRCS += am67_serial.c
+ifeq ($(CONFIG_AM67_MCSPI0),y)
+CHIP_CSRCS += am67_mcspi.c
+endif
 CHIP_CSRCS += am67_timer.c

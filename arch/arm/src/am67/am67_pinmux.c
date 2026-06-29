@@ -68,6 +68,46 @@ static struct pinmux_conf_s g_am67_pinmux_conf[] =
   {PINMUX_END, PINMUX_END}
 };
 
+static struct pinmux_conf_s g_am67_mcu_spi_pinmux_conf[] =
+{
+  /* MCU_SPI0_CLK */
+
+  {
+    PIN_MCU_SPI0_CLK,
+    (PIN_MODE(0) | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_SPI0_D0 (MOSI) */
+
+  {
+    PIN_MCU_SPI0_D0,
+    (PIN_MODE(0) | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_SPI0_D1 (MISO) */
+
+  {
+    PIN_MCU_SPI0_D1,
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_SPI0_CS1 (BMP390) */
+
+  {
+    PIN_MCU_SPI0_CS1,
+    (PIN_MODE(0) | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_SPI0_CS3 via MCAN0_TX pad, mode 2 */
+
+  {
+    PIN_MCU_MCAN0_TX,
+    (PIN_MODE(2) | PIN_PULL_DISABLE)
+  },
+
+  {PINMUX_END, PINMUX_END}
+};
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -103,6 +143,26 @@ static void am67_pinmux_unlock(void)
   putreg32(KICK1_UNLOCK_VAL, kick_addr);
 }
 
+static void am67_mcu_pinmux_unlock(void)
+{
+  uint32_t base_addr;
+  volatile uint32_t *kick_addr;
+
+  base_addr = CSL_MCU_PADCFG_CTRL0_CFG0_BASE;
+
+  kick_addr =
+    (volatile uint32_t *)(base_addr + CSL_MCU_PADCONFIG_LOCK0_KICK0_OFFSET);
+  CSL_REG32_WR(kick_addr, KICK0_UNLOCK_VAL);
+  kick_addr++;
+  CSL_REG32_WR(kick_addr, KICK1_UNLOCK_VAL);
+
+  kick_addr =
+    (volatile uint32_t *)(base_addr + CSL_MCU_PADCONFIG_LOCK1_KICK0_OFFSET);
+  CSL_REG32_WR(kick_addr, KICK0_UNLOCK_VAL);
+  kick_addr++;
+  CSL_REG32_WR(kick_addr, KICK1_UNLOCK_VAL);
+}
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -135,6 +195,30 @@ void am67_pinmux_config(const struct pinmux_conf_s *pinmux_conf)
 }
 
 /****************************************************************************
+ * Name: am67_mcu_pinmux_config
+ ****************************************************************************/
+
+void am67_mcu_pinmux_config(const struct pinmux_conf_s *pinmux_conf)
+{
+  uint32_t base_addr;
+  volatile uint32_t *reg_addr;
+
+  if (pinmux_conf != NULL)
+    {
+      base_addr = CSL_MCU_PADCFG_CTRL0_CFG0_BASE + PADCFG_PMUX_OFFSET;
+
+      am67_mcu_pinmux_unlock();
+
+      while (pinmux_conf->offset != PINMUX_END)
+        {
+          reg_addr = (volatile uint32_t *)(base_addr + pinmux_conf->offset);
+          CSL_REG32_WR(reg_addr, pinmux_conf->setting);
+          pinmux_conf++;
+        }
+    }
+}
+
+/****************************************************************************
  * Name: am67_pinmux_init
  *
  * Description:
@@ -145,4 +229,17 @@ void am67_pinmux_config(const struct pinmux_conf_s *pinmux_conf)
 void am67_pinmux_init(void)
 {
   am67_pinmux_config(g_am67_pinmux_conf);
+}
+
+/****************************************************************************
+ * Name: am67_spi_pinmux_init
+ *
+ * Description:
+ *   Configure MCU_SPI0 pin multiplexing for onboard sensors.
+ *
+ ****************************************************************************/
+
+void am67_spi_pinmux_init(void)
+{
+  am67_mcu_pinmux_config(g_am67_mcu_spi_pinmux_conf);
 }
