@@ -24,4 +24,13 @@ include $(TOPDIR)/Make.defs
 
 CSRCS = am67_bringup.c am67_appinit.c
 
+ifeq ($(CONFIG_AM67_MCSPI0),y)
+CSRCS += am67_spi.c
+CFLAGS += ${INCDIR_PREFIX}$(TOPDIR)/arch/arm/src/am67
+endif
+
+ifeq ($(CONFIG_AM67_I2C),y)
+CSRCS += am67_i2c.c
+CFLAGS += ${INCDIR_PREFIX}$(TOPDIR)/arch/arm/src/am67
+endif
 include $(TOPDIR)/boards/Board.mk
