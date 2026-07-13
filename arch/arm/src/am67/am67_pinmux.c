@@ -74,37 +74,61 @@ static struct pinmux_conf_s g_am67_mcu_spi_pinmux_conf[] =
 
   {
     PIN_MCU_SPI0_CLK,
-    (PIN_MODE(0) | PIN_PULL_DISABLE)
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
   },
 
-  /* MCU_SPI0_D0 (MOSI) */
+  /* MCU_SPI0_D0 (MOSI) - output to sensor SDI; INPUT_ENABLE allows the
+   * D0 self-loopback test
+   */
 
   {
     PIN_MCU_SPI0_D0,
-    (PIN_MODE(0) | PIN_PULL_DISABLE)
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
   },
 
-  /* MCU_SPI0_D1 (MISO) */
+  /* MCU_SPI0_D1 (MISO) - sensor SDO to D1 (ti,pindir-d0-out-d1-in) */
 
   {
     PIN_MCU_SPI0_D1,
     (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
   },
 
-  /* MCU_SPI0_CS1 (BMP390) */
+  /* MCU_SPI0_CS0 (unused, configures pad to SPI CS0 function) */
+
+  {
+    PIN_MCU_SPI0_CS0,
+    (PIN_MODE(0) | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_SPI0_CS1 (BMP390, channel 1) */
 
   {
     PIN_MCU_SPI0_CS1,
     (PIN_MODE(0) | PIN_PULL_DISABLE)
   },
 
-  /* MCU_SPI0_CS3 via MCAN0_TX pad, mode 2 */
+  /* MCU_SPI0_CS2 (HAT spidev, channel 2) - WKUP_UART0_RXD pad, mode 2 */
+
+  {
+    PIN_WKUP_UART0_RXD,
+    (PIN_MODE(2) | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_SPI0_CS3 (ICM20948, channel 3) - MCU_MCAN0_TX pad, mode 2 */
 
   {
     PIN_MCU_MCAN0_TX,
     (PIN_MODE(2) | PIN_PULL_DISABLE)
   },
 
+  /* IMU_EN -> MCU_GPIO0_12 (C3) - WKUP_UART0_RTSN pad at mode 7 */
+
+  {
+    PIN_WKUP_UART0_RTSN,
+    (PIN_MODE(7) | PIN_PULL_DISABLE)
+  },
+  {PINMUX_END, PINMUX_END}
+};
   {PINMUX_END, PINMUX_END}
 };
 

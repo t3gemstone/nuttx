@@ -178,8 +178,9 @@ static void am67_mcspi_channel_enable(FAR struct am67_mcspi_dev_s *priv,
     }
 
   priv->chctrl = chctrl;
-  am67_mcspi_putreg(priv->base, AM67_MCSPI_CHCTRL0 +
-                    AM67_MCSPI_CH_OFFSET(priv->channel), chctrl);
+  am67_mcspi_putreg(priv->base,
+                    AM67_MCSPI_CHCTRL0 + AM67_MCSPI_CH_OFFSET(priv->channel),
+                    chctrl);
 }
 
 static void am67_mcspi_cs_force(FAR struct am67_mcspi_dev_s *priv,
@@ -189,19 +190,22 @@ static void am67_mcspi_cs_force(FAR struct am67_mcspi_dev_s *priv,
 
   if (deassert)
     {
-      chconf |= AM67_MCSPI_CHCONF_FORCE;
+      chconf &= ~AM67_MCSPI_CHCONF_FORCE;  /* FORCE=0: CS deasserted (high) */
     }
   else
     {
-      chconf &= ~AM67_MCSPI_CHCONF_FORCE;
+      chconf |= AM67_MCSPI_CHCONF_FORCE;   /* FORCE=1: CS asserted (low, EPOL=1) */
     }
 
   priv->chconf = chconf;
-  am67_mcspi_putreg(priv->base, AM67_MCSPI_CHCONF0 +
-                    AM67_MCSPI_CH_OFFSET(priv->channel), chconf);
+  am67_mcspi_putreg(priv->base,
+                    AM67_MCSPI_CHCONF0 + AM67_MCSPI_CH_OFFSET(priv->channel),
+                    chconf);
+  am67_mcspi_channel_enable(priv, !deassert);
 }
 
-static uint8_t am67_mcspi_calc_divisor(uint32_t speed_hz, uint32_t ref_clk_hz)
+static uint8_t am67_mcspi_calc_divisor(uint32_t speed_hz,
+                                       uint32_t ref_clk_hz)
 {
   uint8_t clkd;
 
@@ -221,7 +225,7 @@ static void am67_mcspi_apply_hwconfig(FAR struct am67_mcspi_dev_s *priv)
   uint32_t ref_clk = CONFIG_AM67_MCSPI0_FCLK;
   uint32_t speed_hz = priv->frequency;
   uint32_t chconf;
-  uint32_t chctrl = 0;
+  uint32_t chctrl = priv->chctrl & AM67_MCSPI_CHCTRL_EN; /* preserve EN bit */
   uint8_t clkd;
   uint32_t div;
   uint32_t extclk = 0;
@@ -236,6 +240,7 @@ static void am67_mcspi_apply_hwconfig(FAR struct am67_mcspi_dev_s *priv)
       clkd = am67_mcspi_calc_divisor(speed_hz, ref_clk);
       speed_hz = ref_clk >> (clkd + 1);
       chconf = 0;
+      chctrl &= ~AM67_MCSPI_CHCTRL_EXTCLK_MASK;
     }
   else
     {
@@ -244,16 +249,17 @@ static void am67_mcspi_apply_hwconfig(FAR struct am67_mcspi_dev_s *priv)
       clkd = (div - 1) & 0x0fu;
       extclk = (div - 1) >> 4;
       chconf = AM67_MCSPI_CHCONF_CLKG;
-      chctrl = (extclk << AM67_MCSPI_CHCTRL_EXTCLK_SHIFT) &
-               AM67_MCSPI_CHCTRL_EXTCLK_MASK;
+      chctrl &= ~AM67_MCSPI_CHCTRL_EXTCLK_MASK;
+      chctrl |= (extclk << AM67_MCSPI_CHCTRL_EXTCLK_SHIFT) &
+                AM67_MCSPI_CHCTRL_EXTCLK_MASK;
     }
 
   priv->frequency = speed_hz;
 
-  chconf |= AM67_MCSPI_CHCONF_IS;
-  chconf |= AM67_MCSPI_CHCONF_DPE1;
-  chconf &= ~AM67_MCSPI_CHCONF_DPE0;
-  chconf |= AM67_MCSPI_CHCONF_EPOL;
+  chconf |= AM67_MCSPI_CHCONF_IS;    /* IS=1: receive from D1 (MISO) */
+  chconf &= ~AM67_MCSPI_CHCONF_DPE0; /* DPE0=0: TX enabled on D0 (MOSI) */
+  chconf |= AM67_MCSPI_CHCONF_DPE1;  /* DPE1=1: TX disabled on D1 */
+  chconf |= AM67_MCSPI_CHCONF_EPOL;  /* EPOL=1: CS active-low */
   chconf &= ~AM67_MCSPI_CHCONF_WL_MASK;
   chconf |= ((uint32_t)(priv->nbits - 1) << AM67_MCSPI_CHCONF_WL_SHIFT);
   chconf &= ~AM67_MCSPI_CHCONF_CLKD_MASK;
@@ -277,13 +283,35 @@ static void am67_mcspi_apply_hwconfig(FAR struct am67_mcspi_dev_s *priv)
       chconf &= ~AM67_MCSPI_CHCONF_PHA;
     }
 
+  /* SPIENSLV: route this channel to its natural CS pin (chN uses CSN) */
+
+  chconf &= ~AM67_MCSPI_CHCONF_SPIENSLV_MASK;
+  chconf |= ((uint32_t)priv->channel << AM67_MCSPI_CHCONF_SPIENSLV_SHIFT) &
+             AM67_MCSPI_CHCONF_SPIENSLV_MASK;
+
+  /* Re-assert FORCE if the channel is currently selected so that
+   * reconfiguring mid-transaction does not glitch the CS line.
+   */
+
+  if (priv->selected)
+    {
+      chconf |= AM67_MCSPI_CHCONF_FORCE;
+    }
+
   priv->chconf = chconf;
   priv->chctrl = chctrl;
 
-  am67_mcspi_putreg(priv->base, AM67_MCSPI_CHCONF0 +
-                    AM67_MCSPI_CH_OFFSET(priv->channel), chconf);
-  am67_mcspi_putreg(priv->base, AM67_MCSPI_CHCTRL0 +
-                    AM67_MCSPI_CH_OFFSET(priv->channel), chctrl);
+  am67_mcspi_putreg(priv->base,
+                    AM67_MCSPI_CHCONF0 + AM67_MCSPI_CH_OFFSET(priv->channel),
+                    chconf);
+  am67_mcspi_putreg(priv->base,
+                    AM67_MCSPI_CHCTRL0 + AM67_MCSPI_CH_OFFSET(priv->channel),
+                    chctrl);
+
+  if (priv->selected)
+    {
+      am67_mcspi_channel_enable(priv, true);
+    }
 }
 
 static void am67_mcspi_select_channel(FAR struct am67_mcspi_dev_s *priv,
@@ -301,44 +329,66 @@ static void am67_mcspi_select_channel(FAR struct am67_mcspi_dev_s *priv,
 
 static void am67_mcspi_controller_init(FAR struct am67_mcspi_dev_s *priv)
 {
+  uint32_t regval;
   uint32_t modulctrl;
 
-  modulctrl = am67_mcspi_getreg(priv->base, AM67_MCSPI_MODULCTRL);
-  modulctrl &= ~AM67_MCSPI_MODULCTRL_MS;
-  modulctrl |= AM67_MCSPI_MODULCTRL_SINGLE;
+  /* Set HL_SYSCONFIG to no-idle so the OCP interconnect does not gate
+   * the functional clock while we poll status registers.
+   */
+
+  am67_mcspi_putreg(priv->base, AM67_MCSPI_HL_SYSCONFIG,
+                    AM67_MCSPI_HL_SYSCONFIG_NOIDLE);
+
+  /* Trigger the hardware soft reset */
+
+  regval = am67_mcspi_getreg(priv->base, AM67_MCSPI_SYSCONFIG);
+  regval |= AM67_MCSPI_SYSCONFIG_SOFTRESET;
+  am67_mcspi_putreg(priv->base, AM67_MCSPI_SYSCONFIG, regval);
+
+  /* Wait until SYSSTATUS.RESETDONE is 1 */
+
+  do
+    {
+      regval = am67_mcspi_getreg(priv->base, AM67_MCSPI_SYSSTATUS);
+    }
+  while ((regval & AM67_MCSPI_SYSSTATUS_RESETDONE) == 0);
+
+  /* Configure CLOCKACTIVITY and SIDLEMODE */
+
+  regval = AM67_MCSPI_SYSCONFIG_CLKACT_BOTH |
+           AM67_MCSPI_SYSCONFIG_SIDLEMODE_NO;
+  am67_mcspi_putreg(priv->base, AM67_MCSPI_SYSCONFIG, regval);
+
+  /* SINGLE=1: one channel active at a time; CS controlled via FORCE bit */
+
+  modulctrl = AM67_MCSPI_MODULCTRL_SINGLE;
   am67_mcspi_putreg(priv->base, AM67_MCSPI_MODULCTRL, modulctrl);
 
   am67_mcspi_apply_hwconfig(priv);
 }
 
 static uint32_t am67_mcspi_transfer_word(FAR struct am67_mcspi_dev_s *priv,
-                                         uint32_t wd, bool last)
+                                         uint32_t wd)
 {
-  uint8_t channel = priv->channel;
+  uint32_t choff = AM67_MCSPI_CH_OFFSET(priv->channel);
 
-  if (!am67_mcspi_waitstat(priv->base, channel, AM67_MCSPI_CHSTAT_TXS))
+  if (!am67_mcspi_waitstat(priv->base, priv->channel,
+                           AM67_MCSPI_CHSTAT_TXS))
     {
+      spierr("ERROR: TX timeout ch%u\n", priv->channel);
       return 0;
     }
 
-  am67_mcspi_putreg(priv->base, AM67_MCSPI_TX0 +
-                    AM67_MCSPI_CH_OFFSET(channel), wd);
+  am67_mcspi_putreg(priv->base, AM67_MCSPI_TX0 + choff, wd);
 
-  if (!am67_mcspi_waitstat(priv->base, channel, AM67_MCSPI_CHSTAT_RXS))
+  if (!am67_mcspi_waitstat(priv->base, priv->channel,
+                           AM67_MCSPI_CHSTAT_RXS))
     {
+      spierr("ERROR: RX timeout ch%u\n", priv->channel);
       return 0;
     }
 
-  wd = am67_mcspi_getreg(priv->base, AM67_MCSPI_RX0 +
-                         AM67_MCSPI_CH_OFFSET(channel));
-
-  if (last)
-    {
-      am67_mcspi_channel_enable(priv, false);
-      am67_mcspi_channel_enable(priv, true);
-    }
-
-  return wd;
+  return am67_mcspi_getreg(priv->base, AM67_MCSPI_RX0 + choff);
 }
 
 /****************************************************************************
@@ -395,7 +445,7 @@ static uint32_t am67_mcspi_send(FAR struct spi_dev_s *dev, uint32_t wd)
       return 0;
     }
 
-  return am67_mcspi_transfer_word(priv, wd, true);
+  return am67_mcspi_transfer_word(priv, wd);
 }
 
 #ifdef CONFIG_SPI_EXCHANGE
@@ -404,8 +454,6 @@ static void am67_mcspi_exchange(FAR struct spi_dev_s *dev,
                                 FAR void *rxbuffer, size_t nwords)
 {
   FAR struct am67_mcspi_dev_s *priv = am67_mcspi_dev(dev);
-  FAR const uint8_t *tx8 = txbuffer;
-  FAR uint8_t *rx8 = rxbuffer;
   size_t i;
 
   if (!priv->selected)
@@ -413,22 +461,36 @@ static void am67_mcspi_exchange(FAR struct spi_dev_s *dev,
       return;
     }
 
-  for (i = 0; i < nwords; i++)
+  if (priv->nbits > 8)
     {
-      uint32_t wd = 0xff;
-      uint32_t rd;
-      bool last = (i + 1 == nwords);
+      FAR const uint16_t *tx16 = txbuffer;
+      FAR uint16_t *rx16 = rxbuffer;
 
-      if (tx8 != NULL)
+      for (i = 0; i < nwords; i++)
         {
-          wd = tx8[i];
+          uint32_t wd = (tx16 != NULL) ? (uint32_t)tx16[i] : 0xffffu;
+          uint32_t rd = am67_mcspi_transfer_word(priv, wd);
+
+          if (rx16 != NULL)
+            {
+              rx16[i] = (uint16_t)rd;
+            }
         }
+    }
+  else
+    {
+      FAR const uint8_t *tx8 = txbuffer;
+      FAR uint8_t *rx8 = rxbuffer;
 
-      rd = am67_mcspi_transfer_word(priv, wd, last);
-
-      if (rx8 != NULL)
+      for (i = 0; i < nwords; i++)
         {
-          rx8[i] = (uint8_t)rd;
+          uint32_t wd = (tx8 != NULL) ? (uint32_t)tx8[i] : 0xffu;
+          uint32_t rd = am67_mcspi_transfer_word(priv, wd);
+
+          if (rx8 != NULL)
+            {
+              rx8[i] = (uint8_t)rd;
+            }
         }
     }
 }
@@ -457,21 +519,19 @@ FAR struct spi_dev_s *am67_spibus_initialize(int port)
   return &g_spi0dev.spidev;
 }
 
-void am67_mcspi_board_select(FAR struct spi_dev_s *dev, uint32_t devid,
+void am67_mcspi_board_select(FAR struct spi_dev_s *dev, uint8_t channel,
                              bool selected)
 {
   FAR struct am67_mcspi_dev_s *priv = am67_mcspi_dev(dev);
 
   if (selected)
     {
-      am67_mcspi_select_channel(priv, (uint8_t)devid);
+      am67_mcspi_select_channel(priv, channel);
       am67_mcspi_cs_force(priv, false);
-      am67_mcspi_channel_enable(priv, true);
       priv->selected = true;
     }
   else
     {
-      am67_mcspi_channel_enable(priv, false);
       am67_mcspi_cs_force(priv, true);
       priv->selected = false;
     }

@@ -37,7 +37,7 @@
 #define CSL_PADCFG_CTRL0_CFG0_BASE            (0xf0000ul)
 #define CSL_PADCFG_CTRL0_CFG0_SIZE            (0x8000ul)
 
-#define CSL_MCU_PADCFG_CTRL0_CFG0_BASE        (0x4080000ul)
+#define CSL_MCU_PADCFG_CTRL0_CFG0_BASE        (0x04080000ul)
 #define CSL_MCU_PADCFG_CTRL0_CFG0_SIZE        (0x8000ul)
 
 #define PADCFG_PMUX_OFFSET                    (0x4000u)

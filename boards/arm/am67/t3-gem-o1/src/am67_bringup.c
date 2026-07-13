@@ -32,6 +32,8 @@
 
 #ifdef CONFIG_AM67_MCSPI0
 #include "am67_mcspi.h"
+#include "am67_gpio.h"
+#endif
 #endif
 
 /****************************************************************************
@@ -57,6 +59,7 @@ int am67_bringup(void)
   int ret = OK;
 
 #ifdef CONFIG_AM67_MCSPI0
+  am67_sensors_power_enable(true);
   am67_spiinitialize();
   am67_spidev_initialize();
 #endif
