@@ -42,10 +42,17 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-/* Hardware MCSPI chip-select indices on MCU_SPI0 */
+/* SPIDEV_USER(n) = SPIDEV_ID(SPIDEVTYPE_USER, n): the spi tool's -t 0
+ * selects SPIDEVTYPE_USER, so devid = SPIDEV_USER(csn).
+ */
 
-#define AM67_SPIDEV_BMP390    1
-#define AM67_SPIDEV_ICM20948  3
+#define AM67_SPIDEV_LPS22DF   SPIDEV_USER(1)   /* CS1 per Linux DTS */
+#define AM67_SPIDEV_ICM20948  SPIDEV_USER(3)   /* CS3 per Linux DTS */
+
+/* MCSPI channel numbers for each device (low byte of SPIDEV_USER(n)) */
+
+#define AM67_CH_LPS22DF       1u
+#define AM67_CH_ICM20948      3u
 
 /****************************************************************************
  * Public Functions
@@ -60,9 +67,11 @@ void am67_spi0select(FAR struct spi_dev_s *dev, uint32_t devid,
 {
   switch (devid)
     {
-      case AM67_SPIDEV_BMP390:
+      case AM67_SPIDEV_LPS22DF:
+        am67_mcspi_board_select(dev, AM67_CH_LPS22DF, selected);
+        break;
       case AM67_SPIDEV_ICM20948:
-        am67_mcspi_board_select(dev, devid, selected);
+        am67_mcspi_board_select(dev, AM67_CH_ICM20948, selected);
         break;
 
       default:
@@ -79,7 +88,7 @@ uint8_t am67_spi0status(FAR struct spi_dev_s *dev, uint32_t devid)
 {
   switch (devid)
     {
-      case AM67_SPIDEV_BMP390:
+      case AM67_SPIDEV_LPS22DF:
       case AM67_SPIDEV_ICM20948:
         return SPI_STATUS_PRESENT;
 
@@ -98,6 +107,7 @@ void am67_spidev_initialize(void)
   int ret;
 
   am67_configgpio(AM67_GPIO_HAT_CS1, GPIO_OUTPUT);
+  am67_configgpio(AM67_GPIO_HAT_CS2, GPIO_OUTPUT);
   am67_configgpio(AM67_GPIO_HAT_CS3, GPIO_OUTPUT);
 
   spi = am67_spibus_initialize(0);

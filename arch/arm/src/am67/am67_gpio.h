@@ -49,6 +49,7 @@ enum am67_gpio_id_e
   AM67_GPIO_ID_SPI_CS1,
   AM67_GPIO_ID_SPI_CS3,
   AM67_GPIO_ID_IMU_EN,
+  AM67_GPIO_ID_SPI_CS2,
   AM67_GPIO_ID_COUNT
 };
 
@@ -57,6 +58,7 @@ enum am67_gpio_id_e
 #define AM67_GPIO_HAT_CS1    ((am67_gpio_t)AM67_GPIO_ID_SPI_CS1)
 #define AM67_GPIO_HAT_CS3    ((am67_gpio_t)AM67_GPIO_ID_SPI_CS3)
 #define AM67_GPIO_MCU0_PIN12 ((am67_gpio_t)AM67_GPIO_ID_IMU_EN)
+#define AM67_GPIO_HAT_CS2    ((am67_gpio_t)AM67_GPIO_ID_SPI_CS2)
 
 /* HAT header GPIO mapping — filled in during F4 PWM bring-up */
 

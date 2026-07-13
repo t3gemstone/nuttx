@@ -115,7 +115,13 @@ static const struct am67_gpio_desc_s g_am67_gpio_table[AM67_GPIO_ID_COUNT] =
     MCU_GPIO0_BASE, 12,
     -1, PIN_WKUP_UART0_RTSN,
     (PIN_MODE(7) | PIN_PULL_DISABLE),
-    true, false
+    true, false   /* active_low: LOW activates IMU per board design */
+  },
+  {
+    0, 0,
+    -1, PIN_WKUP_UART0_RXD,
+    (PIN_MODE(2) | PIN_PULL_DISABLE),
+    true, true   /* CS2: hardware pin, pad_only */
   },
 };
 
@@ -145,7 +151,7 @@ static inline void gpio_set_dir(uint32_t base, uint32_t pin, uint32_t dir)
   uint32_t bit_pos = gpio_bit_pos(pin);
 
   gpio->BANK_REGISTERS[reg_index].DIR &= ~gpio_bit_mask(pin);
-  gpio->BANK_REGISTERS[reg_index].DIR |= ((dir & 0x01U) << bit_pos);
+  gpio->BANK_REGISTERS[reg_index].DIR |= ((dir & 0x01u) << bit_pos);
 }
 
 static inline void gpio_write_high(uint32_t base, uint32_t pin)
