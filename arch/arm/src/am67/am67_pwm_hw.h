@@ -32,6 +32,7 @@
 /* Base addresses */
 
 #define AM67_EPWM0_BASE                 0x23000000
+#define AM67_EPWM1_BASE                 0x23010000
 
 /* Expected values */
 
@@ -119,8 +120,25 @@
 #define AM67_EPWM_AQCTLA_ZRO_MASK                       (3u << 0)
 #define AM67_EPWM_AQCTLA_CAU_SHIFT                      (4)
 #define AM67_EPWM_AQCTLA_CAU_MASK                       (3u << 4)
+
+/* AQCTLB has the same event field layout as AQCTLA; output B's compare
+ * event is CBU (CMPB, up-count), bits 9:8.
+ */
+
+#define AM67_EPWM_AQCTLB_ZRO_SHIFT                      (0)
+#define AM67_EPWM_AQCTLB_ZRO_MASK                       (3u << 0)
+#define AM67_EPWM_AQCTLB_CBU_SHIFT                      (8)
+#define AM67_EPWM_AQCTLB_CBU_MASK                       (3u << 8)
+
+/* AQCSFRC: CSFA and CSFB share this register; per-channel writes must be
+ * read-modify-write of the 2-bit field only.  The CSFA_* action codes
+ * above apply to both fields.
+ */
+
 #define AM67_EPWM_AQCSFRC_CSFA_SHIFT                    (0)
 #define AM67_EPWM_AQCSFRC_CSFA_MASK                     (3u << 0)
+#define AM67_EPWM_AQCSFRC_CSFB_SHIFT                    (2)
+#define AM67_EPWM_AQCSFRC_CSFB_MASK                     (3u << 2)
 #define AM67_EPWM_AQSFRC_RLDCSF_SHIFT                   (6)
 #define AM67_EPWM_AQSFRC_RLDCSF_MASK                    (3u << 6)
 #define AM67_EPWM_AQSFRC_RLDCSF_IMMEDIATE               (3)

@@ -30,7 +30,7 @@
 #include <nuttx/config.h>
 #include <nuttx/timers/pwm.h>
 
-#ifdef CONFIG_AM67_EPWM0
+#if defined(CONFIG_AM67_EPWM0) || defined(CONFIG_AM67_EPWM1)
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -93,15 +93,16 @@ int am67_epwm_init(void);
  *   through the ops (setup on first open, start/stop via ioctl).
  *
  * Input Parameters:
- *   pwm - PWM instance number; only 0 (EPWM0) exists today.
+ *   pwm - PWM instance number: 0 (EPWM0) or 1 (EPWM1).  EPWM2 is the
+ *   board cooling fan and is deliberately not supported.
  *
  * Returned Value:
  *   Pointer to the lower-half driver on success; NULL on an unsupported
- *   instance number.
+ *   or unconfigured instance number.
  *
  ****************************************************************************/
 
 struct pwm_lowerhalf_s *am67_epwminitialize(int pwm);
 
-#endif /* CONFIG_AM67_EPWM0 */
+#endif /* CONFIG_AM67_EPWM0 || CONFIG_AM67_EPWM1 */
 #endif /* __ARCH_ARM_SRC_AM67_AM67_PWM_H */
