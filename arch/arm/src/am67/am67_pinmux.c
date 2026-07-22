@@ -130,6 +130,42 @@ static struct pinmux_conf_s g_am67_mcu_spi_pinmux_conf[] =
   {PINMUX_END, PINMUX_END}
 };
 
+static struct pinmux_conf_s g_am67_mcu_i2c_pinmux_conf[] =
+{
+#ifdef CONFIG_AM67_I2C0
+  /* MCU_I2C0_SCL */
+
+  {
+    PIN_MCU_I2C0_SCL,
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+  },
+
+  /* MCU_I2C0_SDA */
+
+  {
+    PIN_MCU_I2C0_SDA,
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+  },
+#endif
+
+#ifdef CONFIG_AM67_WKUP_I2C0
+  /* WKUP_I2C0_SCL */
+
+  {
+    PIN_WKUP_I2C0_SCL,
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+  },
+
+  /* WKUP_I2C0_SDA */
+
+  {
+    PIN_WKUP_I2C0_SDA,
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+  },
+#endif
+  {PINMUX_END, PINMUX_END}
+};
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -259,4 +295,17 @@ void am67_pinmux_init(void)
 void am67_spi_pinmux_init(void)
 {
   am67_mcu_pinmux_config(g_am67_mcu_spi_pinmux_conf);
+}
+
+/****************************************************************************
+ * Name: am67_i2c_pinmux_init
+ *
+ * Description:
+ *   Configure MCU_I2C0 pin multiplexing for onboard sensors.
+ *
+ ****************************************************************************/
+
+void am67_i2c_pinmux_init(void)
+{
+  am67_mcu_pinmux_config(g_am67_mcu_i2c_pinmux_conf);
 }
