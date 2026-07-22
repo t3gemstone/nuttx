@@ -68,6 +68,42 @@ static struct pinmux_conf_s g_am67_pinmux_conf[] =
   {PINMUX_END, PINMUX_END}
 };
 
+static struct pinmux_conf_s g_am67_epwm0_pinmux_conf[] =
+{
+  /* EPWM0 A output pin (B20, mode 2 = EHRPWM0_A) */
+
+  {
+    PIN_SPI0_CS0,
+    (PIN_MODE(2) | PIN_PULL_DISABLE)
+  },
+
+  /* EPWM0 B output pin (C20, mode 2 = EHRPWM0_B) */
+
+  {
+    PIN_SPI0_CS1,
+    (PIN_MODE(2) | PIN_PULL_DISABLE)
+  },
+  {PINMUX_END, PINMUX_END}
+};
+
+static struct pinmux_conf_s g_am67_epwm1_pinmux_conf[] =
+{
+  /* EPWM1 A output pin (D20, mode 2 = EHRPWM1_A) */
+
+  {
+    PIN_SPI0_CLK,
+    (PIN_MODE(2) | PIN_PULL_DISABLE)
+  },
+
+  /* EPWM1 B output pin (E19, mode 2 = EHRPWM1_B) */
+
+  {
+    PIN_SPI0_D0,
+    (PIN_MODE(2) | PIN_PULL_DISABLE)
+  },
+  {PINMUX_END, PINMUX_END}
+};
+
 static struct pinmux_conf_s g_am67_mcu_spi_pinmux_conf[] =
 {
   /* MCU_SPI0_CLK */
@@ -308,4 +344,25 @@ void am67_spi_pinmux_init(void)
 void am67_i2c_pinmux_init(void)
 {
   am67_mcu_pinmux_config(g_am67_mcu_i2c_pinmux_conf);
+}
+
+/****************************************************************************
+ * Name: am67_epwm_pinmux_init
+ *
+ * Description:
+ *   Configure the output pin multiplexing (A and B pads) for the given
+ *   EPWM instance.
+ *
+ ****************************************************************************/
+
+void am67_epwm_pinmux_init(int epwm)
+{
+  if (epwm == 0)
+    {
+      am67_pinmux_config(g_am67_epwm0_pinmux_conf);
+    }
+  else
+    {
+      am67_pinmux_config(g_am67_epwm1_pinmux_conf);
+    }
 }
