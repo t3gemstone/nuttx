@@ -39,6 +39,10 @@
 #include "am67_i2c.h"
 #endif
 
+#if defined(CONFIG_AM67_EPWM0)
+#include "am67_pwm.h"
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -69,6 +73,38 @@ int am67_bringup(void)
 
 #if defined(CONFIG_AM67_I2C0) || defined(CONFIG_AM67_WKUP_I2C0)
   am67_i2cdev_initialize();
+#endif
+
+#ifdef CONFIG_AM67_EPWM0
+  ret = am67_epwm_init();
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: Failed to initialize EPWM0: %d\n", ret);
+    }
+  else
+    {
+      struct pwm_lowerhalf_s *lower;
+
+      syslog(LOG_INFO, "EPWM0: CTRL_MMR unlocked\n");
+
+      lower = am67_epwminitialize(0);
+      if (lower == NULL)
+        {
+          syslog(LOG_ERR, "ERROR: Failed to get EPWM0 lower half\n");
+        }
+      else
+        {
+          ret = pwm_register("/dev/pwm0", lower);
+          if (ret < 0)
+            {
+              syslog(LOG_ERR, "ERROR: pwm_register failed: %d\n", ret);
+            }
+          else
+            {
+              syslog(LOG_INFO, "EPWM0: registered /dev/pwm0\n");
+            }
+        }
+    }
 #endif
 
 #ifdef CONFIG_FS_PROCFS
