@@ -95,6 +95,17 @@
 
 #define AM67_MBOX_USER          (3U)
 
+/* Control messages the Linux side exchanges in the mailbox payload.  Any
+ * value outside [READY, END_MSG) is a virtqueue index instead.  Values are
+ * from the TI kernel's drivers/remoteproc/omap_remoteproc.h; SHUTDOWN and
+ * SHUTDOWN_ACK are TI additions used by ti_k3_r5_remoteproc.c.
+ */
+
+#define RP_MBOX_READY           (0xffffff00ul)
+#define RP_MBOX_SHUTDOWN        (0xffffff14ul)
+#define RP_MBOX_SHUTDOWN_ACK    (0xffffff15ul)
+#define RP_MBOX_END_MSG         (0xffffff16ul)
+
 /* VIM IRQ number on MAIN_R5FSS0_0 for mailbox0_cluster3/user3 */
 
 #ifndef CONFIG_AM67_RPTUN_IRQ
@@ -311,14 +322,27 @@ static void am67_rptun_notify_work(void *arg)
 static int am67_rptun_interrupt(int irq, void *context, void *arg)
 {
   struct am67_rptun_dev_s *priv = (struct am67_rptun_dev_s *)arg;
+  bool shutdown = false;
+  bool kick = false;
 
   /* Drain all messages Linux wrote into FIFO 1.  Each read pops one
-   * entry; stop when MSG_STATUS reports 0 pending messages.
+   * entry; stop when MSG_STATUS reports 0 pending messages.  A single
+   * interrupt can carry both control messages and virtqueue kicks, so
+   * classify every entry rather than the batch.
    */
 
   while (getreg32(AM67_MBOX_MSG_STATUS(AM67_MBOX_RX_FIFO)) != 0)
     {
-      (void)getreg32(AM67_MBOX_MESSAGE(AM67_MBOX_RX_FIFO));
+      uint32_t msg = getreg32(AM67_MBOX_MESSAGE(AM67_MBOX_RX_FIFO));
+
+      if (msg == RP_MBOX_SHUTDOWN)
+        {
+          shutdown = true;
+        }
+      else if (msg < RP_MBOX_READY || msg >= RP_MBOX_END_MSG)
+        {
+          kick = true;
+        }
     }
 
   /* Clear the new-message interrupt status for user-3 / FIFO-1.
@@ -335,8 +359,26 @@ static int am67_rptun_interrupt(int irq, void *context, void *arg)
   putreg32(0, AM67_MBOX_EOI);
   UP_DSB();
 
+  /* Honour a shutdown request: acknowledge it, then park the core.  Linux
+   * polls the TI-SCI WFI status for 2 ms after the ACK and only halts the
+   * R5F once it sees us in WFI, so this must never return.
+   */
+
+  if (shutdown)
+    {
+      putreg32(RP_MBOX_SHUTDOWN_ACK, AM67_MBOX_MESSAGE(AM67_MBOX_TX_FIFO));
+      UP_DSB();
+
+      up_irq_save();
+
+      for (; ; )
+        {
+          __asm__ __volatile__ ("wfi");
+        }
+    }
+
   if (priv != NULL && priv->callback != NULL &&
-      work_available(&priv->work))
+      work_available(&priv->work) && kick)
     {
       work_queue(HPWORK, &priv->work, am67_rptun_notify_work, priv, 0);
     }
