@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/src/am67/am67_mpuinit.c
+ * arch/arm/src/am67/am67_ecap.h
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,77 +20,59 @@
  *
  ****************************************************************************/
 
+#ifndef __ARCH_ARM_SRC_AM67_AM67_ECAP_H
+#define __ARCH_ARM_SRC_AM67_AM67_ECAP_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <nuttx/userspace.h>
-#include <arch/barriers.h>
-#include <assert.h>
-#include <sys/param.h>
 
-#include "am67_mpuinit.h"
-#include "am67_rat.h"
-#include "mpu.h"
+#if defined(CONFIG_AM67_ECAP0) || defined(CONFIG_AM67_ECAP1) || \
+    defined(CONFIG_AM67_ECAP2)
+
+/* The eCAP module is driven as an Auxiliary PWM (APWM) generator, so it
+ * binds to the PWM upper half (pwm_register), not the capture upper half.
+ */
+
+#include <nuttx/timers/pwm.h>
 
 /****************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ****************************************************************************/
 
 /****************************************************************************
- * Name: am67_mpu_reset
+ * Name: am67_ecap_init
  *
  * Description:
- *   Reset all MPU regions by disabling each region.
+ *   Boot-time preparation: unlock MAIN_CTRL_MMR partition 1, mirroring
+ *   am67_epwm_init.  Must run before pwm_register().
+ *
+ * Returned Value:
+ *   Zero (OK) on success; a negated errno on failure.
  *
  ****************************************************************************/
 
-void am67_mpu_reset(void)
-{
-  for (int i = 0; i < AM67_NUM_OF_MPU_REGION; i++)
-    {
-      mpu_set_region_zero(i);
-    }
-}
+int am67_ecap_init(void);
 
 /****************************************************************************
- * Name: am67_mpu_init
+ * Name: am67_ecapinitialize
  *
  * Description:
- *   Initialize the MPU by disabling it, resetting all regions, configuring
- *   specific memory regions, and then re-enabling the MPU.
+ *   Return the lower-half instance for the given module so the board bringup
+ *   can bind it with pwm_register().  No hardware is touched here.
+ *
+ * Input Parameters:
+ *   ecap - eCAP module number: 0, 1 or 2.
+ *
+ * Returned Value:
+ *   Lower-half pointer on success; NULL on an unsupported or unconfigured
+ *   module number.
  *
  ****************************************************************************/
 
-void am67_mpu_init(void)
-{
-  mpu_control(false);
+struct pwm_lowerhalf_s *am67_ecapinitialize(int ecap);
 
-  am67_mpu_disable_br();
-
-  am67_mpu_reset();
-
-  am67_register_region(AM67_REGISTER_START_ADDR, AM67_REGISTER_SIZE);
-  am67_tcma_region(AM67_TCMA_START_ADDR, AM67_TCMA_SIZE);
-  am67_tcmb_region(AM67_TCMB_START_ADDR, AM67_TCMB_SIZE);
-  am67_mcu_msram_region(AM67_MCU_MSRAM_START_ADDR, AM67_MCU_MSRAM_SIZE);
-  am67_ddr_region(AM67_DDR_START_ADDR, AM67_DDR_SIZE);
-
-  /* Non-cacheable overrides for the OpenAMP/rptun shared IPC memory.
-   * Configured last so they take priority over the (cacheable) DDR
-   * region for their ranges and make the R5F<->A53 shared structures
-   * coherent (see am67_mpuinit.h).
-   */
-
-  am67_ipc_shm_region(AM67_IPC_SHM0_START_ADDR, AM67_IPC_SHM0_SIZE);
-  am67_ipc_shm_region(AM67_IPC_SHM1_START_ADDR, AM67_IPC_SHM1_SIZE);
-
-  /* RAT sliding window (am67_rat.c): retargeted at runtime onto arbitrary
-   * 36-bit physical blocks, so it must never be cached.
-   */
-
-  am67_ipc_shm_region(AM67_RAT_WIN_BASE, AM67_RAT_WIN_SIZE);
-
-  mpu_control(true);
-}
+#endif /* CONFIG_AM67_ECAP0 || CONFIG_AM67_ECAP1 || CONFIG_AM67_ECAP2 */
+#endif /* __ARCH_ARM_SRC_AM67_AM67_ECAP_H */

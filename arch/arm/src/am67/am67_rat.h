@@ -1,5 +1,5 @@
 /****************************************************************************
- * boards/arm/am67/t3-gem-o1/src/t3-gem-o1.h
+ * arch/arm/src/am67/am67_rat.h
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,8 +20,8 @@
  *
  ****************************************************************************/
 
-#ifndef __BOARDS_ARM_T3_GEM_O1_SRC_T3_GEM_O1_H
-#define __BOARDS_ARM_T3_GEM_O1_SRC_T3_GEM_O1_H
+#ifndef __ARCH_ARM_SRC_AM67_AM67_RAT_H
+#define __ARCH_ARM_SRC_AM67_AM67_RAT_H
 
 /****************************************************************************
  * Included Files
@@ -29,26 +29,26 @@
 
 #include <nuttx/config.h>
 
-#ifndef __ASSEMBLY__
-
-struct spi_dev_s;
+#include <stdint.h>
+#include <stddef.h>
 
 /****************************************************************************
- * Public Functions Definitions
+ * Pre-processor Definitions
  ****************************************************************************/
 
-int am67_bringup(void);
+/* 32-bit address range claimed by the RAT sliding window.  Must be mapped
+ * Non-cacheable in the MPU (am67_mpuinit.c) and must not overlap anything
+ * the firmware needs to address directly (NuttX RAM/IPC live in
+ * 0xa2000000-0xa3000000).
+ */
 
-#ifdef CONFIG_AM67_MCSPI0
-void am67_spi0select(FAR struct spi_dev_s *dev, uint32_t devid,
-                     bool selected);
-uint8_t am67_spi0status(FAR struct spi_dev_s *dev, uint32_t devid);
-void am67_spidev_initialize(void);
-#endif
+#define AM67_RAT_WIN_BASE    (0xfe000000ul)
+#define AM67_RAT_WIN_SIZE    (0x01000000ul) /* 16 MB */
 
-#if defined(CONFIG_AM67_I2C0) || defined(CONFIG_AM67_WKUP_I2C0)
-void am67_i2cdev_initialize(void);
-#endif
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
-#endif /* __ASSEMBLY__ */
-#endif /* __BOARDS_ARM_T3_GEM_O1_SRC_T3_GEM_O1_H */
+FAR void *am67_rat_map(uint64_t pa, FAR size_t *avail);
+
+#endif /* __ARCH_ARM_SRC_AM67_AM67_RAT_H */

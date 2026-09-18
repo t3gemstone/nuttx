@@ -143,6 +143,22 @@
                                (d)->ops->get_resource(d) : NULL)
 
 /****************************************************************************
+ * Name: RPTUN_GET_RSC_SIZE
+ *
+ * Description:
+ *   Return the byte size of the resource table.  Falls back to
+ *   sizeof(struct rptun_rsc_s) when get_rsc_size is not implemented,
+ *   which is correct for all drivers that use the standard table.
+ *   Drivers with extended tables (extra vdev entries) must provide
+ *   get_rsc_size() so remoteproc_set_rsc_table() sees the full extent.
+ *
+ ****************************************************************************/
+
+#define RPTUN_GET_RSC_SIZE(d) ((d)->ops->get_rsc_size ? \
+                               (d)->ops->get_rsc_size(d) : \
+                               sizeof(struct rptun_rsc_s))
+
+/****************************************************************************
  * Name: RPTUN_IS_AUTOSTART
  *
  * Description:
@@ -357,6 +373,14 @@ struct rptun_ops_s
                         FAR struct rptun_dev_s *dev);
   CODE FAR struct resource_table *(*get_resource)(
                         FAR struct rptun_dev_s *dev);
+
+  /* Optional: return the actual byte size of the resource table.
+   * If NULL, rptun uses sizeof(struct rptun_rsc_s) as the default.
+   * Provide this op when the resource table is larger than rptun_rsc_s
+   * (e.g. when extra vdev entries have been appended).
+   */
+
+  CODE size_t (*get_rsc_size)(FAR struct rptun_dev_s *dev);
 
   CODE bool (*is_autostart)(FAR struct rptun_dev_s *dev);
   CODE bool (*is_master)(FAR struct rptun_dev_s *dev);

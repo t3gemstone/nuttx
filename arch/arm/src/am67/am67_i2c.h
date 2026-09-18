@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/src/am67/am67_mpuinit.c
+ * arch/arm/src/am67/am67_i2c.h
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,77 +20,54 @@
  *
  ****************************************************************************/
 
+#ifndef __ARCH_ARM_SRC_AM67_AM67_I2C_H
+#define __ARCH_ARM_SRC_AM67_AM67_I2C_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <nuttx/userspace.h>
-#include <arch/barriers.h>
-#include <assert.h>
-#include <sys/param.h>
-
-#include "am67_mpuinit.h"
-#include "am67_rat.h"
-#include "mpu.h"
+#include <nuttx/i2c/i2c_master.h>
 
 /****************************************************************************
- * Public Functions
+ * Public Function Prototypes
  ****************************************************************************/
 
 /****************************************************************************
- * Name: am67_mpu_reset
+ * Name: am67_i2cbus_initialize
  *
  * Description:
- *   Reset all MPU regions by disabling each region.
+ *   Initialize the selected I2C port. And return a unique instance of struct
+ *   struct i2c_master_s.  This function may be called to obtain multiple
+ *   instances of the interface, each of which may be set up with a
+ *   different frequency and slave address.
+ *
+ * Input Parameters:
+ *   Port number (for hardware that has multiple I2C interfaces)
+ *
+ * Returned Value:
+ *   Valid I2C device structure reference on success; a NULL on failure
  *
  ****************************************************************************/
 
-void am67_mpu_reset(void)
-{
-  for (int i = 0; i < AM67_NUM_OF_MPU_REGION; i++)
-    {
-      mpu_set_region_zero(i);
-    }
-}
+struct i2c_master_s *am67_i2cbus_initialize(int port);
 
 /****************************************************************************
- * Name: am67_mpu_init
+ * Name: am67_i2cbus_uninitialize
  *
  * Description:
- *   Initialize the MPU by disabling it, resetting all regions, configuring
- *   specific memory regions, and then re-enabling the MPU.
+ *   De-initialize the selected I2C port, and power down the device.
+ *
+ * Input Parameters:
+ *   Device structure as returned by the am67_i2cbus_initialize()
+ *
+ * Returned Value:
+ *   OK on success, ERROR when internal reference count mismatch or dev
+ *   points to invalid hardware device.
  *
  ****************************************************************************/
 
-void am67_mpu_init(void)
-{
-  mpu_control(false);
+int am67_i2cbus_uninitialize(struct i2c_master_s *dev);
 
-  am67_mpu_disable_br();
-
-  am67_mpu_reset();
-
-  am67_register_region(AM67_REGISTER_START_ADDR, AM67_REGISTER_SIZE);
-  am67_tcma_region(AM67_TCMA_START_ADDR, AM67_TCMA_SIZE);
-  am67_tcmb_region(AM67_TCMB_START_ADDR, AM67_TCMB_SIZE);
-  am67_mcu_msram_region(AM67_MCU_MSRAM_START_ADDR, AM67_MCU_MSRAM_SIZE);
-  am67_ddr_region(AM67_DDR_START_ADDR, AM67_DDR_SIZE);
-
-  /* Non-cacheable overrides for the OpenAMP/rptun shared IPC memory.
-   * Configured last so they take priority over the (cacheable) DDR
-   * region for their ranges and make the R5F<->A53 shared structures
-   * coherent (see am67_mpuinit.h).
-   */
-
-  am67_ipc_shm_region(AM67_IPC_SHM0_START_ADDR, AM67_IPC_SHM0_SIZE);
-  am67_ipc_shm_region(AM67_IPC_SHM1_START_ADDR, AM67_IPC_SHM1_SIZE);
-
-  /* RAT sliding window (am67_rat.c): retargeted at runtime onto arbitrary
-   * 36-bit physical blocks, so it must never be cached.
-   */
-
-  am67_ipc_shm_region(AM67_RAT_WIN_BASE, AM67_RAT_WIN_SIZE);
-
-  mpu_control(true);
-}
+#endif /* __ARCH_ARM_SRC_AM67_AM67_I2C_H */

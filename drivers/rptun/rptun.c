@@ -830,7 +830,7 @@ static int rptun_do_start(FAR struct remoteproc *rproc)
         }
 
       ret = remoteproc_set_rsc_table(rproc, (struct resource_table *)rsc,
-                                     sizeof(struct rptun_rsc_s));
+                                     RPTUN_GET_RSC_SIZE(priv->dev));
       if (ret < 0)
         {
           rptunerr("remoteproc set rsc_table failed, ret=%d\n", ret);
@@ -1022,6 +1022,7 @@ static int rptun_dev_ioctl(FAR struct file *filep, int cmd,
                            unsigned long arg)
 {
   FAR struct inode *inode = filep->f_inode;
+
   return rptun_do_ioctl(inode->i_private, cmd, arg);
 }
 
