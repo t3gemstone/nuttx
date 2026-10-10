@@ -23,6 +23,9 @@
 /* DShot bit engine, entered straight from the FIQ vector (am67_dshot.c).
  * Runs in FIQ mode on the banked r8-r12 only: no stack, no saved context.
  * r8 = &g_am67_dshot (struct am67_dshot_fiq_s), set once at install.
+ * r9 = VIM base from entry up to the STS write after label 7: nothing on
+ * the way there may reuse it, or the FIQVEC read and the STS write land in
+ * ATCM (g_am67_dshot + 0x424 is IRQ code) and the next IRQ crashes.
  * Anything but the EPWM0 event trigger (VIM 36) continues at the previous
  * vector target, the generic NuttX FIQ entry, with lr/spsr untouched.
  *
@@ -89,10 +92,10 @@ am67_dshot_fiq:
 	cmp	r10, r12
 	bls	7f
 	ldr	r12, [r8, #124]			/* ring index */
-	and	r9, r12, #15
-	add	r9, r8, r9, lsl #3
-	str	r10, [r9, #128]			/* gap, cycles */
-	str	lr, [r9, #132]			/* lr_fiq */
+	and	r11, r12, #15			/* not r9: it holds the VIM base */
+	add	r11, r8, r11, lsl #3		/* for label 7 (FIQVEC, STS) */
+	str	r10, [r11, #128]		/* gap, cycles */
+	str	lr, [r11, #132]			/* lr_fiq */
 	add	r12, r12, #1
 	str	r12, [r8, #124]
 7:
