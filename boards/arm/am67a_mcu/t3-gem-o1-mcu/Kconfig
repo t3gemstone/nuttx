@@ -1,0 +1,13 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_BOARD_T3_GEM_O1_MCU
+
+config T3_GEM_O1_MCU_CONSOLE
+	bool "Use MCU UART0 as Console"
+	default y
+	select AM67A_MCU_UART0
+
+endif # ARCH_BOARD_T3_GEM_O1_MCU

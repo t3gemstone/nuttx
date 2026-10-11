@@ -1,0 +1,15 @@
+include $(TOPDIR)/Make.defs
+
+CSRCS = t3_gem_o1_mcu_boot.c t3_gem_o1_mcu_bringup.c
+
+ifeq ($(CONFIG_BOARDCTL),y)
+CSRCS += t3_gem_o1_mcu_appinit.c
+endif
+
+ifeq ($(CONFIG_NET),y)
+CSRCS += t3_gem_o1_mcu_netinit.c
+endif
+
+DEPPATH += --dep-path src
+VPATH += :src
+CFLAGS += $(shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)src$(DELIM)board$(DELIM)src)

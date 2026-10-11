@@ -1591,6 +1591,12 @@ config ARCH_BOARD_T3_GEM_O1
 		This is the port of NuttX to the T3 Gemstone O1 board.
 		See https://docs.t3gemstone.org/en/boards/o1/introduction for further information.
 
+config ARCH_BOARD_T3_GEM_O1_MCU
+	bool "T3 Gemstone O1 (MCU Domain)"
+	depends on ARCH_CHIP_AM67A_MCU
+	---help---
+		This is the port of NuttX to the T3 Gemstone O1 board MCU Domain (Cortex-R5F).
+
 config ARCH_BOARD_PIC32MX_STARTERKIT
 	bool "Microchip PIC32MX Ethernet Starter Kit (DM320004)"
 	depends on ARCH_CHIP_PIC32MX795F512L
@@ -3697,6 +3703,7 @@ config ARCH_BOARD
 	default "pcduino-a10"               if ARCH_BOARD_PCDUINO_A10
 	default "beaglebone-black"          if ARCH_BOARD_BEAGLEBONE_BLACK
 	default "t3-gem-o1"                 if ARCH_BOARD_T3_GEM_O1
+	default "t3-gem-o1-mcu"             if ARCH_BOARD_T3_GEM_O1_MCU
 	default "pic32mx-starterkit"        if ARCH_BOARD_PIC32MX_STARTERKIT
 	default "pic32mx7mmb"               if ARCH_BOARD_PIC32MX7MMB
 	default "pic32mz-starterkit"        if ARCH_BOARD_PIC32MZ_STARTERKIT
@@ -3913,6 +3920,9 @@ source "boards/arm/am335x/beaglebone-black/Kconfig"
 endif
 if ARCH_BOARD_T3_GEM_O1
 source "boards/arm/am67/t3-gem-o1/Kconfig"
+endif
+if ARCH_BOARD_T3_GEM_O1_MCU
+source "boards/arm/am67a_mcu/t3-gem-o1-mcu/Kconfig"
 endif
 if ARCH_BOARD_C5471EVM
 source "boards/arm/c5471/c5471evm/Kconfig"
