@@ -27,7 +27,7 @@ include armv7-r/Make.defs
 HEAD_ASRC = am67a_mcu_tcma_boot.S
 
 CHIP_CSRCS = am67a_mcu_boot.c am67a_mcu_mpuinit.c am67a_mcu_lowputc.c \
-             am67a_mcu_irq.c am67a_mcu_timer.c
+             am67a_mcu_irq.c am67a_mcu_timer.c am67a_mcu_serial.c
 
 ifeq ($(CONFIG_RPTUN),y)
 CHIP_CSRCS += am67a_mcu_rptun.c am67a_mcu_rsc_table.c
