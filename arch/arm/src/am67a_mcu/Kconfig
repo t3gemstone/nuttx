@@ -1,0 +1,94 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_CHIP_AM67A_MCU
+
+config SOC_AM67A_MCU_R5F
+	bool "TI AM67A MCU Domain Cortex-R5F"
+	default y
+	select ARCH_CORTEXR5
+	select ARCH_ARMV7R
+	select ARMV7R_HAVE_MPU
+	select ARCH_HAVE_MPU
+	select ARMV7R_MEMINIT
+	select ARCH_HAVE_LOWVECTORS
+	select ARCH_LOWVECTORS
+	---help---
+		Texas Instruments AM67A MCU Domain Cortex-R5F core (mcu-r5f0_0).
+
+menu "AM67A MCU Peripheral Selection"
+
+config AM67A_MCU_UART0
+	bool "MCU UART0"
+	default y
+	---help---
+		Enable MCU Domain UART0 peripheral.
+
+config AM67A_MCU_RTI0
+	bool "MCU RTI0 (Timer)"
+	default y
+	---help---
+		Enable MCU Domain RTI0 timer for system tick.
+
+config AM67A_MCU_RPTUN
+	bool "AM67A MCU RemoteProc Tunnel (RPTun)"
+	default n
+	select RPTUN
+	---help---
+		Enable AM67A MCU RemoteProc Tunnel driver for IPC communication with
+		Linux (A53) via TI Hardware Mailbox Cluster 1.
+
+config AM67A_MCU_MCSPI0
+	bool "MCU MCSPI0"
+	default n
+	select SPI
+	---help---
+		Enable AM67A MCU Domain MCSPI0 peripheral.
+
+config AM67A_MCU_MCSPI1
+	bool "MCU MCSPI1"
+	default n
+	select SPI
+	---help---
+		Enable AM67A MCU Domain MCSPI1 peripheral.
+
+config AM67A_MCU_MCSPI_FCLK
+	int "MCU MCSPI Functional Clock Frequency (Hz)"
+	default 50000000
+	depends on AM67A_MCU_MCSPI0 || AM67A_MCU_MCSPI1
+	---help---
+		Input reference clock frequency for MCU MCSPI instances.
+		Default is 50000000 (50 MHz) as configured in MCU+ SDK.
+
+config AM67A_MCU_I2C0
+	bool "MCU I2C0 (0x04900000)"
+	default n
+	select I2C
+	---help---
+		Enable AM67A MCU Domain MCU_I2C0 master peripheral at 0x04900000.
+
+config AM67A_MCU_I2C0_FCLK
+	int "MCU I2C0 Functional Clock Frequency (Hz)"
+	default 96000000
+	depends on AM67A_MCU_I2C0
+	---help---
+		Input reference clock frequency for MCU_I2C0. Default is 96000000 (96 MHz).
+
+config AM67A_MCU_EPWM
+	bool "MCU EPWM"
+	default n
+	select PWM
+	---help---
+		Enable AM67A MCU Domain EPWM driver.
+
+config AM67A_MCU_HRT
+	bool "High Resolution Timer (HRT)"
+	default y
+	---help---
+		Enable High Resolution Timer (HRT) driver using MCU_TIMER1.
+
+endmenu
+
+endif # ARCH_CHIP_AM67A_MCU

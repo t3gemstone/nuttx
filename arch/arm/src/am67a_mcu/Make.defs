@@ -1,0 +1,58 @@
+############################################################################
+# arch/arm/src/am67a_mcu/Make.defs
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include armv7-r/Make.defs
+
+# AM67A MCU Domain uses custom TCMA boot vector table as HEAD object
+
+HEAD_ASRC = am67a_mcu_tcma_boot.S
+
+CHIP_CSRCS = am67a_mcu_boot.c am67a_mcu_mpuinit.c am67a_mcu_lowputc.c \
+             am67a_mcu_irq.c am67a_mcu_timer.c
+
+ifeq ($(CONFIG_RPTUN),y)
+CHIP_CSRCS += am67a_mcu_rptun.c am67a_mcu_rsc_table.c
+endif
+
+ifneq ($(filter y,$(CONFIG_AM67A_MCU_MCSPI0) $(CONFIG_AM67A_MCU_MCSPI1)),)
+CHIP_CSRCS += am67a_mcu_mcspi.c
+endif
+
+ifeq ($(CONFIG_AM67A_MCU_I2C0),y)
+CHIP_CSRCS += am67a_mcu_i2c.c
+endif
+
+ifeq ($(CONFIG_AM67A_MCU_EPWM),y)
+CHIP_CSRCS += am67a_mcu_pwm.c
+endif
+
+ifeq ($(CONFIG_AM67A_MCU_HRT),y)
+CHIP_CSRCS += am67a_mcu_hrt.c
+endif
+
+ifeq ($(CONFIG_ARM_MPU),y)
+CHIP_CSRCS += arm_mpu.c
+endif
+
+# RemoteProc expects entry point at TCMA vector start (0x00000000)
+
+LDFLAGS += --entry=_vector_start

@@ -94,6 +94,15 @@ config ARCH_CHIP_AM67
 	---help---
 		TI AM67 family
 
+config ARCH_CHIP_AM67A_MCU
+	bool "TI AM67A MCU Domain"
+	select ARCH_CORTEXR5
+	select ARCH_ARMV7R
+	select ARMV7R_HAVE_MPU
+	select ARCH_HAVE_MPU
+	---help---
+		Texas Instruments AM67A MCU Domain (Cortex-R5F).
+
 config ARCH_CHIP_FVP_ARMV8R_AARCH32
 	bool "ARM FVP virt platform (ARMv8r AARCH32)"
 	select ARCH_CORTEXR52
@@ -1161,6 +1170,7 @@ config ARCH_CHIP
 	default "a1x"		if ARCH_CHIP_A1X
 	default "am335x"	if ARCH_CHIP_AM335X
 	default "am67"		if ARCH_CHIP_AM67
+	default "am67a_mcu"	if ARCH_CHIP_AM67A_MCU
 	default "fvp-v8r-aarch32"	if ARCH_CHIP_FVP_ARMV8R_AARCH32
 	default "c5471"		if ARCH_CHIP_C5471
 	default "dm320"		if ARCH_CHIP_DM320
@@ -1588,6 +1598,9 @@ source "arch/arm/src/am335x/Kconfig"
 endif
 if ARCH_CHIP_AM67
 source "arch/arm/src/am67/Kconfig"
+endif
+if ARCH_CHIP_AM67A_MCU
+source "arch/arm/src/am67a_mcu/Kconfig"
 endif
 if ARCH_CHIP_FVP_ARMV8R_AARCH32
 source "arch/arm/src/fvp-v8r-aarch32/Kconfig"

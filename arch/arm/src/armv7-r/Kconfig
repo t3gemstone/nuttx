@@ -8,7 +8,8 @@ comment "ARMv7-R Configuration Options"
 config ARMV7R_HAVE_GICv2
 	bool "ARMV7R_GICv2 support"
 	select ARCH_HAVE_IRQTRIGGER
-	default y
+	default y if !ARCH_CHIP_AM67 && !ARCH_CHIP_AM67A_MCU
+	default n if ARCH_CHIP_AM67 || ARCH_CHIP_AM67A_MCU
 	---help---
 		Selected by the configuration tool if the architecture supports the
 		Generic Interrupt Controller (GIC)
