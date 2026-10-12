@@ -74,5 +74,11 @@ int am67_ecap_init(void);
 
 struct pwm_lowerhalf_s *am67_ecapinitialize(int ecap);
 
+/* Hold every set-up eCAP APWM output low. Callable from any context;
+ * am67_ecap_init() also hooks it to the panic notifier.
+ */
+
+void am67_ecap_emergency_stop(void);
+
 #endif /* CONFIG_AM67_ECAP0 || CONFIG_AM67_ECAP1 || CONFIG_AM67_ECAP2 */
 #endif /* __ARCH_ARM_SRC_AM67_AM67_ECAP_H */

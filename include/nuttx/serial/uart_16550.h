@@ -187,6 +187,7 @@
 #define UART_MSR_OFFSET        6  /* Modem Status Register */
 #define UART_SCR_OFFSET        7  /* Scratch Pad Register */
 #define UART_USR_OFFSET        31 /* UART Status Register */
+#define UART_SSR_OFFSET        17 /* TI OMAP/K3: Supplementary Status Register */
 #define UART_DLF_OFFSET        48 /* Divisor Latch Fraction Register */
 
 /* Register bit definitions *************************************************/
@@ -282,6 +283,7 @@
 #define UART_LSR_FE                  (1 << 3)  /* Bit 3:  Framing Error */
 #define UART_LSR_BI                  (1 << 4)  /* Bit 4:  Break Interrupt */
 #define UART_LSR_THRE                (1 << 5)  /* Bit 5:  Transmitter Holding Register Empty */
+#define UART_SSR_TXFULL              (1 << 0)  /* TI OMAP/K3 SSR bit 0: TX FIFO full */
 #define UART_LSR_TEMT                (1 << 6)  /* Bit 6:  Transmitter Empty */
 #define UART_LSR_RXFE                (1 << 7)  /* Bit 7:  Error in RX FIFO (RXFE) */
 

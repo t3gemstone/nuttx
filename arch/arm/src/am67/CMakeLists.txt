@@ -21,10 +21,22 @@
 # ##############################################################################
 
 set(SRCS am67_boot.c am67_irq.c am67_mpuinit.c am67_pinmux.c am67_rat.c
-         am67_serial.c am67_timer.c)
+         am67_serial.c am67_timer.c am67_tisci.c)
 
 if(CONFIG_RPTUN)
   list(APPEND SRCS am67_rptun.c)
+endif()
+
+if(CONFIG_AM67_RTI8_WDT)
+  list(APPEND SRCS am67_rti.c)
+endif()
+
+if(CONFIG_AM67_DSHOT)
+  list(APPEND SRCS am67_dshot.c am67_dshot_fiq.S)
+endif()
+
+if(CONFIG_AM67_SDHCI0)
+  list(APPEND SRCS am67_sdhci.c)
 endif()
 
 target_link_options(nuttx PRIVATE -Wl,--entry=_vector_start)

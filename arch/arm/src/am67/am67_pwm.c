@@ -32,7 +32,9 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <syslog.h>
 
+#include <nuttx/panic_notifier.h>
 #include <nuttx/timers/pwm.h>
 
 #include "arm_internal.h"
@@ -62,6 +64,8 @@
 /* EPWM time-base clock gate (CTRL_MMR partition 1) */
 
 #define AM67_CTRL_MMR_EPWM_TB_CLKEN       0x4130      /* Offset from base */
+#define AM67_CTRL_MMR_EPWM_CTRL(n)        (0x4140 + 4 * (n))   /* EPWMn_CTRL */
+#define AM67_CTRL_MMR_EPWM_CTRL_EALLOW    (1u << 4)   /* trip-zone write enable */
 #define AM67_EPWM_TB_CLKEN_EPWM0_EN       (1u << 0)
 #define AM67_EPWM_TB_CLKEN_EPWM1_EN       (1u << 1)
 #define AM67_EPWM_TB_CLKEN_EPWM2_EN       (1u << 2)
@@ -112,6 +116,7 @@ struct am67_epwm_s
   uint16_t tbprd;
   uint8_t active_channels;
   uint8_t pinmux_id;        /* Instance number for pad muxing */
+  volatile bool live;       /* setup() done: module powered and clocked */
 };
 
 /****************************************************************************
@@ -127,10 +132,19 @@ static int am67_epwm_start(struct pwm_lowerhalf_s *dev,
 static int am67_epwm_stop(struct pwm_lowerhalf_s *dev);
 static int am67_epwm_ioctl(struct pwm_lowerhalf_s *dev,
                            int cmd, unsigned long arg);
+static int am67_epwm_panic(FAR struct notifier_block *nb,
+                           unsigned long action, FAR void *data);
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
+
+/* Time-base clock gates this core turned on, and how often another host
+ * turned one of them off under it (am67_epwm_tbclk_guard()).
+ */
+
+static volatile uint32_t g_tbclk_owned;
+static volatile uint32_t g_tbclk_restores;
 
 static const struct pwm_ops_s g_am67_epwmops =
 {
@@ -294,6 +308,7 @@ static int am67_epwm_enable_clock(uint32_t clken_mask)
       return -EIO;
     }
 
+  g_tbclk_owned |= clken_mask;
   return OK;
 }
 
@@ -315,6 +330,7 @@ static int am67_epwm_disable_clock(uint32_t clken_mask)
   uint32_t regval = am67_epwm_getreg(AM67_MAIN_CTRL_MMR_BASE,
                                      AM67_CTRL_MMR_EPWM_TB_CLKEN);
 
+  g_tbclk_owned &= ~clken_mask;
   regval &= ~clken_mask;
 
   am67_epwm_putreg(AM67_MAIN_CTRL_MMR_BASE, AM67_CTRL_MMR_EPWM_TB_CLKEN,
@@ -366,31 +382,31 @@ static int am67_epwm_check_pid(uint32_t base)
  * Name: am67_epwm_config_aqctl
  *
  * Description:
- *   Program the action qualifier for one output: SET at counter zero,
- *   CLEAR at that output's own compare event on the way up (CAU/CMPA
- *   for channel 1, CBU/CMPB for channel 2).  Up-count asymmetric
- *   recipe: duty is proportional to the compare value.
+ *   High from the start of the period until the up-count compare: SET
+ *   on zero and on period, CLEAR on this channel's compare. The period
+ *   SET is one timebase tick at the end of the low interval. Full write
+ *   so a read-modify cannot keep stale actions.
  *
  ****************************************************************************/
 
 static void am67_epwm_config_aqctl(uint32_t base, int8_t channel)
 {
-  uint32_t offset = (channel == 1) ? AM67_EPWM_AQCTLA_OFFSET
-                                   : AM67_EPWM_AQCTLB_OFFSET;
-  uint16_t regval = am67_epwm_getreg16(base, offset);
+  uint16_t regval;
 
   if (channel == 1)
     {
-      regval |= (AM67_EPWM_AQ_SET << AM67_EPWM_AQCTLA_ZRO_SHIFT);
+      regval  = (AM67_EPWM_AQ_SET << AM67_EPWM_AQCTLA_ZRO_SHIFT);
+      regval |= (AM67_EPWM_AQ_SET << AM67_EPWM_AQCTLA_PRD_SHIFT);
       regval |= (AM67_EPWM_AQ_CLEAR << AM67_EPWM_AQCTLA_CAU_SHIFT);
+      am67_epwm_putreg16(base, AM67_EPWM_AQCTLA_OFFSET, regval);
     }
   else
     {
-      regval |= (AM67_EPWM_AQ_SET << AM67_EPWM_AQCTLB_ZRO_SHIFT);
+      regval  = (AM67_EPWM_AQ_SET << AM67_EPWM_AQCTLB_ZRO_SHIFT);
+      regval |= (AM67_EPWM_AQ_SET << AM67_EPWM_AQCTLB_PRD_SHIFT);
       regval |= (AM67_EPWM_AQ_CLEAR << AM67_EPWM_AQCTLB_CBU_SHIFT);
+      am67_epwm_putreg16(base, AM67_EPWM_AQCTLB_OFFSET, regval);
     }
-
-  am67_epwm_putreg16(base, offset, regval);
 }
 
 /****************************************************************************
@@ -406,20 +422,8 @@ static void am67_epwm_clear_aqctl(uint32_t base, int8_t channel)
 {
   uint32_t offset = (channel == 1) ? AM67_EPWM_AQCTLA_OFFSET
                                    : AM67_EPWM_AQCTLB_OFFSET;
-  uint16_t regval = am67_epwm_getreg16(base, offset);
 
-  if (channel == 1)
-    {
-      regval &= ~AM67_EPWM_AQCTLA_ZRO_MASK;
-      regval &= ~AM67_EPWM_AQCTLA_CAU_MASK;
-    }
-  else
-    {
-      regval &= ~AM67_EPWM_AQCTLB_ZRO_MASK;
-      regval &= ~AM67_EPWM_AQCTLB_CBU_MASK;
-    }
-
-  am67_epwm_putreg16(base, offset, regval);
+  am67_epwm_putreg16(base, offset, 0u);
 }
 
 /****************************************************************************
@@ -534,22 +538,26 @@ static void am67_epwm_set_tbctl(uint32_t base)
  * Name: am67_epwm_set_cmpctl
  *
  * Description:
- *   Configure counter-compare for both channels: CMPA and CMPB shadowed
- *   (SHDWxMODE=0), shadows loaded into the active registers on the PRD
- *   event (LOADxMODE=1) so a duty update never races the SET action at
- *   counter zero.  Per-module policy: both channels' compares behave
- *   identically whether or not channel B is in use.
+ *   Shadow CMPA/CMPB (SHDWxMODE=0) and load them at CTR=0 (LOADxMODE=0),
+ *   the start of each pulse.
+ *
+ *   An immediate write can land after the counter has passed the new
+ *   compare but not the old one. The CLEAR for that period is then
+ *   missed, the output stays high into the next period, and the ESC sees
+ *   one pulse longer than the period (> 2.5 ms at 400 Hz) when the
+ *   throttle is lowered. With the load at CTR=0 each period uses one
+ *   compare value from start to end. A new duty takes effect at the next
+ *   period, at most one period late.
  *
  ****************************************************************************/
 
 static void am67_epwm_set_cmpctl(uint32_t base)
 {
-  uint16_t regval = 0u;
+  /* SHDWAMODE = SHDWBMODE = 0 (shadowed), LOADAMODE = LOADBMODE = 0
+   * (load on CTR = 0).
+   */
 
-  regval |= (1u << AM67_EPWM_CMPCTL_LOADAMODE_SHIFT);
-  regval |= (1u << AM67_EPWM_CMPCTL_LOADBMODE_SHIFT);
-
-  am67_epwm_putreg16(base, AM67_EPWM_CMPCTL_OFFSET, regval);
+  am67_epwm_putreg16(base, AM67_EPWM_CMPCTL_OFFSET, 0u);
 }
 
 /****************************************************************************
@@ -782,11 +790,10 @@ static void am67_epwm_set_clock_values(uint32_t base, uint16_t hsp,
  * Description:
  *   Convert the ub16 duty fraction to compare ticks and write it to the
  *   given channel's compare register (CMPA for channel 1, CMPB for
- *   channel 2).  The write lands in the shadow register and loads at
- *   the next PRD event (glitch-free live update).  Worst case product
- *   is 65535 * 65536 < 2^32: no overflow in 32-bit math.  duty = 0
- *   gives exact 0% (compare outranks zero in AQ priority); exact 100%
- *   is unreachable by the ub16 format itself (max 65535/65536).
+ *   channel 2).  The write goes to the shadow register and becomes active
+ *   at the next CTR=0 (see am67_epwm_set_cmpctl).  duty = 0 gives exact
+ *   0% (compare outranks zero in AQ priority); exact 100% is unreachable
+ *   by the ub16 format itself (max 65535/65536).
  *
  ****************************************************************************/
 
@@ -832,10 +839,45 @@ static int am67_epwm_setup(struct pwm_lowerhalf_s *dev)
       return ret;
     }
 
+  /* The trip-zone registers ignore writes until CTRL_MMR EPWMn_CTRL
+   * EALLOW is set. Leave it set so the emergency stop can force a trip.
+   */
+
+  am67_epwm_putreg(AM67_MAIN_CTRL_MMR_BASE,
+                   AM67_CTRL_MMR_EPWM_CTRL(priv->pinmux_id),
+                   am67_epwm_getreg(AM67_MAIN_CTRL_MMR_BASE,
+                                    AM67_CTRL_MMR_EPWM_CTRL(priv->pinmux_id)) |
+                   AM67_CTRL_MMR_EPWM_CTRL_EALLOW);
+
+  /* Force-low is the trip action. Clear a trip left latched by a crashed
+   * image: the module keeps its state across an R5F reload, and a latched
+   * one-shot trip would hold every output low.
+   */
+
+  am67_epwm_putreg16(priv->base, AM67_EPWM_TZCTL_OFFSET,
+                     AM67_EPWM_TZCTL_TZA_LOW | AM67_EPWM_TZCTL_TZB_LOW);
+  am67_epwm_putreg16(priv->base, AM67_EPWM_TZCLR_OFFSET,
+                     AM67_EPWM_TZ_OST | AM67_EPWM_TZ_CBC | AM67_EPWM_TZ_INT);
+
+  if (am67_epwm_getreg16(priv->base, AM67_EPWM_TZCTL_OFFSET) !=
+      (AM67_EPWM_TZCTL_TZA_LOW | AM67_EPWM_TZCTL_TZB_LOW))
+    {
+      pwmerr("ERROR: EPWM%u trip-zone not writable\n", priv->pinmux_id);
+      return -EIO;
+    }
+
+  /* No event-trigger interrupt: a DShot image may have left it enabled,
+   * and the module keeps its state across an R5F reload.
+   */
+
+  am67_epwm_putreg16(priv->base, AM67_EPWM_ETSEL_OFFSET, 0);
+  am67_epwm_putreg16(priv->base, AM67_EPWM_ETCLR_OFFSET, AM67_EPWM_ET_INT);
+
   am67_epwm_pinmux_init(priv->pinmux_id);
   am67_epwm_set_cmpctl(priv->base);
   am67_epwm_set_tbctl(priv->base);
 
+  priv->live = true;
   return OK;
 }
 
@@ -976,21 +1018,17 @@ static int am67_epwm_start(struct pwm_lowerhalf_s *dev,
           return ret;
         }
 
-      /* Commit: nothing below can fail (void register writes only),
-       * and set_duty derives the compare from priv->tbprd, so priv
-       * must be current before the writes begin.
-       */
-
-      priv->frequency = info->frequency;
-      priv->tbprd     = tbprd;
-
-      /* Stop-first: parks both pins and empties the active set, which
-       * makes every requested channel a joiner below - the frequency
-       * change re-ignites through the same join mechanism as a fresh
-       * start.
+      /* stop() parks the pins and clears priv->frequency. Do that
+       * before publishing the new rate: publishing first made the next
+       * start() see frequency 0 and park the outputs on every update.
        */
 
       am67_epwm_stop(dev);
+
+      /* set_duty derives the compare from priv->tbprd. */
+      priv->frequency = info->frequency;
+      priv->tbprd     = tbprd;
+
       am67_epwm_set_clock_values(priv->base, hsp, clk, tbprd);
       am67_epwm_reset_tbcnt(priv->base);
     }
@@ -1184,7 +1222,235 @@ struct pwm_lowerhalf_s *am67_epwminitialize(int pwm)
 
 int am67_epwm_init(void)
 {
+  static struct notifier_block nb =
+  {
+    .notifier_call = am67_epwm_panic,
+  };
+
+  static bool registered;
+
+  if (!registered)
+    {
+      registered = true;
+      panic_notifier_chain_register(&nb);
+    }
+
   return am67_epwm_enable_register_write();
+}
+
+/****************************************************************************
+ * Name: am67_epwm_dshot_setup
+ *
+ * Description:
+ *   Take EPWM0 and EPWM1 (all four motor pins) for DShot, driven bit by
+ *   bit from am67_dshot.c.  Each counter period is one DShot bit: the pin
+ *   goes high at CTR = 0 and low at the compare, and the compares are
+ *   shadowed (loaded at CTR = 0), so every edge is placed by hardware; the
+ *   software only has to write the next bit within one bit period.  EPWM1
+ *   follows EPWM0 through the hardwired SYNCOUT -> SYNCIN link, so the four
+ *   outputs share one time base and one interrupt (EPWM0 ET at CTR = 0).
+ *   setup() still runs first: power, pinmux, trip zone and EALLOW, so the
+ *   emergency stop keeps working.  The pins are held low by the continuous
+ *   software force, which am67_dshot.c releases per bit; it loads at
+ *   CTR = PRD, where no action is programmed.  Compares stay non-zero: a
+ *   compare loaded at CTR = 0 does not act at that same CTR = 0.  Changing
+ *   the protocol of a running module needs a reboot (PWM_MAIN_TIMx).
+ *
+ * Input Parameters:
+ *   tbprd - counter period minus one, in 250 MHz TBCLK ticks
+ *
+ * Returned Value:
+ *   Zero (OK) on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: am67_epwm_tbclk_guard
+ *
+ * Description:
+ *   The time-base clock gates sit in a CTRL_MMR register, outside the
+ *   DM's per-host device accounting, so another host can gate them off
+ *   under a running core.  Linux does at boot ("clk: Disabling unused
+ *   clocks") for every gate it has no consumer of: with this core started
+ *   before Linux that stops the motor outputs.  Turn back on any gate this
+ *   core enabled that is off now.  One register read when nothing changed;
+ *   meant to run every output cycle, from thread context.
+ *
+ * Returned Value:
+ *   How many times a gate had to be turned back on since boot.
+ *
+ ****************************************************************************/
+
+uint32_t am67_epwm_tbclk_guard(void)
+{
+  uint32_t owned = g_tbclk_owned;
+  uint32_t regval;
+  uint32_t n;
+
+  if (owned == 0u)
+    {
+      return g_tbclk_restores;
+    }
+
+  regval = am67_epwm_getreg(AM67_MAIN_CTRL_MMR_BASE,
+                            AM67_CTRL_MMR_EPWM_TB_CLKEN);
+  if ((regval & owned) == owned)
+    {
+      return g_tbclk_restores;
+    }
+
+  /* The partition may have been locked again, too */
+
+  am67_epwm_enable_register_write();
+  am67_epwm_putreg(AM67_MAIN_CTRL_MMR_BASE, AM67_CTRL_MMR_EPWM_TB_CLKEN,
+                   regval | owned);
+
+  n = ++g_tbclk_restores;
+  if ((n & (n - 1u)) == 0u)
+    {
+      syslog(LOG_WARNING, "[pwm] EPWM TB_CLKEN 0x%08" PRIx32 ": gate "
+             "turned off by another host, restored (%" PRIu32 ")\n",
+             regval, n);
+    }
+
+  return n;
+}
+
+int am67_epwm_dshot_setup(uint16_t tbprd)
+{
+  struct am67_epwm_s *const epwm[2] =
+  {
+    &g_am67_epwm0, &g_am67_epwm1
+  };
+
+  int ret;
+  int n;
+
+  for (n = 0; n < 2; n++)
+    {
+      struct am67_epwm_s *priv = epwm[n];
+      uint32_t base = priv->base;
+      uint16_t tbctl;
+
+      if (!priv->live)
+        {
+          ret = am67_epwm_setup((struct pwm_lowerhalf_s *)priv);
+          if (ret < 0)
+            {
+              return ret;
+            }
+        }
+
+      /* Hold both pins low while the module is reconfigured */
+
+      am67_epwm_park_outputs(base);
+
+      /* Frozen, TBCLK = 250 MHz (no prescale), period shadowed.  EPWM0
+       * emits SYNCOUT at CTR = 0; EPWM1 reloads its counter from it.
+       */
+
+      tbctl = AM67_EPWM_TBCTL_CTRMODE_STOP_FREEZE <<
+              AM67_EPWM_TBCTL_CTRMODE_SHIFT;
+      tbctl |= (n == 0 ? 1u : 3u) << AM67_EPWM_TBCTL_SYNCOSEL_SHIFT;
+      if (n == 1)
+        {
+          tbctl |= AM67_EPWM_TBCTL_PHSEN_MASK;
+        }
+
+      am67_epwm_putreg16(base, AM67_EPWM_TBCTL_OFFSET, tbctl);
+      am67_epwm_putreg16(base, AM67_EPWM_TBPRD_OFFSET, tbprd);
+      am67_epwm_putreg16(base, AM67_EPWM_TBPHS_OFFSET, 0);
+      am67_epwm_putreg16(base, AM67_EPWM_TBCNT_OFFSET, 0);
+      am67_epwm_putreg16(base, AM67_EPWM_CMPCTL_OFFSET, 0);
+      am67_epwm_putreg16(base, AM67_EPWM_CMPA_OFFSET, tbprd / 2);
+      am67_epwm_putreg16(base, AM67_EPWM_CMPB_OFFSET, tbprd / 2);
+
+      /* High at CTR = 0, low at the compare, nothing at PRD */
+
+      am67_epwm_putreg16(base, AM67_EPWM_AQCTLA_OFFSET,
+                         (AM67_EPWM_AQ_SET << 0) | (AM67_EPWM_AQ_CLEAR << 4));
+      am67_epwm_putreg16(base, AM67_EPWM_AQCTLB_OFFSET,
+                         (AM67_EPWM_AQ_SET << 0) | (AM67_EPWM_AQ_CLEAR << 8));
+
+      am67_epwm_putreg16(base, AM67_EPWM_ETSEL_OFFSET,
+                         AM67_EPWM_ETSEL_INTSEL_ZERO);
+      am67_epwm_putreg16(base, AM67_EPWM_ETPS_OFFSET,
+                         AM67_EPWM_ETPS_INTPRD_1);
+      am67_epwm_putreg16(base, AM67_EPWM_ETCLR_OFFSET, AM67_EPWM_ET_INT);
+
+      priv->frequency = 0;
+      priv->tbprd = tbprd;
+      priv->active_channels = CH_A_ACTIVE | CH_B_ACTIVE;
+    }
+
+  /* Start EPWM1 first so the first EPWM0 SYNCOUT aligns it */
+
+  for (n = 1; n >= 0; n--)
+    {
+      uint32_t base = epwm[n]->base;
+
+      am67_epwm_putreg16(base, AM67_EPWM_TBCTL_OFFSET,
+                         (am67_epwm_getreg16(base, AM67_EPWM_TBCTL_OFFSET) &
+                          ~AM67_EPWM_TBCTL_CTRMODE_MASK) |
+                         (AM67_EPWM_TBCTL_CTRMODE_UP <<
+                          AM67_EPWM_TBCTL_CTRMODE_SHIFT));
+    }
+
+  /* From now on the force loads at PRD; it stays low until a frame */
+
+  for (n = 0; n < 2; n++)
+    {
+      am67_epwm_putreg16(epwm[n]->base, AM67_EPWM_AQSFRC_OFFSET,
+                         AM67_EPWM_AQSFRC_RLDCSF_PERIOD <<
+                         AM67_EPWM_AQSFRC_RLDCSF_SHIFT);
+      am67_epwm_putreg16(epwm[n]->base, AM67_EPWM_AQCSFRC_OFFSET,
+                         (AM67_EPWM_CSFA_FORCE_LOW << 0) |
+                         (AM67_EPWM_CSFA_FORCE_LOW << 2));
+    }
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: am67_epwm_emergency_stop
+ *
+ * Description:
+ *   Drive every EPWM output that has been set up low at once, with a
+ *   one-shot trip. Register writes only: safe from an assert, an
+ *   exception handler or an ISR. The trip stays latched until the next
+ *   setup().
+ *
+ ****************************************************************************/
+
+void am67_epwm_emergency_stop(void)
+{
+#ifdef CONFIG_AM67_EPWM0
+  if (g_am67_epwm0.live)
+    {
+      am67_epwm_putreg16(g_am67_epwm0.base, AM67_EPWM_TZFRC_OFFSET,
+                         AM67_EPWM_TZ_OST);
+    }
+#endif
+
+#ifdef CONFIG_AM67_EPWM1
+  if (g_am67_epwm1.live)
+    {
+      am67_epwm_putreg16(g_am67_epwm1.base, AM67_EPWM_TZFRC_OFFSET,
+                         AM67_EPWM_TZ_OST);
+    }
+#endif
+}
+
+/* Any assertion or CPU exception: a flight task may be dead, so do not
+ * leave the motors on their last command. The ESCs see the signal go
+ * low and stop.
+ */
+
+static int am67_epwm_panic(FAR struct notifier_block *nb,
+                           unsigned long action, FAR void *data)
+{
+  am67_epwm_emergency_stop();
+  return 0;
 }
 
 #endif /* CONFIG_AM67_EPWM0 || CONFIG_AM67_EPWM1 */

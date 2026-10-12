@@ -20,6 +20,7 @@
 
 #ifdef CONFIG_RPTUN
 
+#include <stdbool.h>
 #include <nuttx/rptun/rptun.h>
 
 /****************************************************************************
@@ -49,9 +50,11 @@
 struct aligned_data(8) am67_rsc_s
 {
   struct rptun_rsc_s       base;        /* RPMsg vdev (index 0) */
+#ifdef CONFIG_AM67_RPTUN_NET_VDEV
   struct fw_rsc_vdev       net_vdev;    /* virtio-net vdev (index 1, id=1) */
   struct fw_rsc_vdev_vring net_vring0;  /* net TX vring */
   struct fw_rsc_vdev_vring net_vring1;  /* net RX vring */
+#endif
 };
 
 /****************************************************************************
@@ -78,6 +81,19 @@ extern const struct am67_rsc_s g_am67_rsc_table;
  ****************************************************************************/
 
 int am67_rptun_init(void);
+
+/* Refuse a remoteproc shutdown request from Linux while locked (PX4 calls
+ * this through BOARD_INDICATE_EXTERNAL_LOCKOUT_STATE while armed).
+ */
+
+void am67_rptun_set_lockout(bool locked);
+
+/* Ask Linux to restart this core (remoteproc stop/start).  Sends
+ * RP_MBOX_CRASH; the Linux side needs gem-r5f-restart.service.  The core
+ * must keep running with interrupts on to answer the shutdown request.
+ */
+
+void am67_rptun_request_restart(void);
 
 #endif /* CONFIG_RPTUN */
 #endif /* __ARCH_ARM_SRC_AM67_AM67_RPTUN_H */

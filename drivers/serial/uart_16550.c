@@ -1576,7 +1576,13 @@ static void u16550_send(struct uart_dev_s *dev, int ch)
  * Name: u16550_sendbuf
  *
  * Description:
- *   This method will send a buffer of bytes on the UART
+ *   Copy as many bytes as the TX FIFO accepts and return that count.
+ *
+ *   uart_xmitchars() calls this from the TX interrupt and, through
+ *   u16550_txint(), with interrupts disabled. Waiting here for FIFO room
+ *   would hold the CPU for one character time per byte (1 ms at 9600
+ *   baud). uart_xmitchars() handles a short count and the next TX
+ *   interrupt sends the rest.
  *
  ****************************************************************************/
 
@@ -1584,13 +1590,13 @@ static ssize_t u16550_sendbuf(struct uart_dev_s *dev,
                               const void *buffer, size_t size)
 {
   size_t i;
-  for (i = 0; i < size; i++)
+
+  for (i = 0; i < size && u16550_txready(dev); i++)
     {
-      while (!u16550_txready(dev));
       u16550_send(dev, ((const unsigned char *)buffer)[i]);
     }
 
-  return (ssize_t)size;
+  return (ssize_t)i;
 }
 
 /****************************************************************************
@@ -1659,7 +1665,11 @@ static void u16550_txint(struct uart_dev_s *dev, bool enable)
 static bool u16550_txready(struct uart_dev_s *dev)
 {
   FAR struct u16550_s *priv = (FAR struct u16550_s *)dev->priv;
+#ifdef CONFIG_16550_TXFULL_SSR
+  return ((u16550_serialin(priv, UART_SSR_OFFSET) & UART_SSR_TXFULL) == 0);
+#else
   return ((u16550_serialin(priv, UART_LSR_OFFSET) & UART_LSR_THRE) != 0);
+#endif
 }
 
 /****************************************************************************

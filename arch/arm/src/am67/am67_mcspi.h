@@ -70,7 +70,9 @@
 #define AM67_MCSPI_CHCTRL0         0x134
 #define AM67_MCSPI_TX0             0x138
 #define AM67_MCSPI_RX0             0x13c
+#define AM67_MCSPI_XFERLEVEL       0x17c
 
+#define AM67_MCSPI_NCHANNELS       4u
 #define AM67_MCSPI_CH_OFFSET(n)    ((uint32_t)(n) * 0x14u)
 
 #define AM67_MCSPI_SYSCONFIG_AUTOIDLE           (1u << 0)
@@ -95,14 +97,41 @@
 #define AM67_MCSPI_CHCONF_DPE0      (1u << 16)
 #define AM67_MCSPI_CHCONF_DPE1      (1u << 17)
 #define AM67_MCSPI_CHCONF_IS        (1u << 18)
+#define AM67_MCSPI_CHCONF_TURBO     (1u << 19)
 #define AM67_MCSPI_CHCONF_FORCE           (1u << 20)
 #define AM67_MCSPI_CHCONF_SPIENSLV_SHIFT  21
 #define AM67_MCSPI_CHCONF_SPIENSLV_MASK   (3u << AM67_MCSPI_CHCONF_SPIENSLV_SHIFT)
+#define AM67_MCSPI_CHCONF_FFEW            (1u << 27)
+#define AM67_MCSPI_CHCONF_FFER            (1u << 28)
 #define AM67_MCSPI_CHCONF_CLKG            (1u << 29)
 
 #define AM67_MCSPI_CHSTAT_RXS       (1u << 0)
 #define AM67_MCSPI_CHSTAT_TXS       (1u << 1)
 #define AM67_MCSPI_CHSTAT_EOT       (1u << 2)
+#define AM67_MCSPI_CHSTAT_TXFFE     (1u << 3)
+#define AM67_MCSPI_CHSTAT_TXFFF     (1u << 4)
+#define AM67_MCSPI_CHSTAT_RXFFE     (1u << 5)
+#define AM67_MCSPI_CHSTAT_RXFFF     (1u << 6)
+
+/* IRQSTATUS/IRQENABLE: per channel TXi_EMPTY, TXi_UNDERFLOW, RXi_FULL at
+ * bits 4i, 4i+1, 4i+2; end of word count (FIFO transfers) at bit 17.
+ */
+
+#define AM67_MCSPI_IRQ_RX_FULL(ch)  (1u << (4u * (ch) + 2u))
+#define AM67_MCSPI_IRQ_EOW          (1u << 17)
+#define AM67_MCSPI_IRQ_ALL          0x0003ffffu
+
+/* XFERLEVEL: word count and almost-empty/almost-full levels */
+
+#define AM67_MCSPI_XFERLEVEL_WCNT_SHIFT 16
+#define AM67_MCSPI_XFERLEVEL_WCNT_MAX   0xffffu
+#define AM67_MCSPI_XFERLEVEL_AFL_SHIFT  8
+
+/* The 64-byte FIFO is split in two 32-byte halves when both directions
+ * use it.
+ */
+
+#define AM67_MCSPI_FIFO_HALF        32u
 
 #define AM67_MCSPI_CHCTRL_EN        (1u << 0)
 #define AM67_MCSPI_CHCTRL_EXTCLK_SHIFT 8
@@ -122,5 +151,45 @@ void am67_spiinitialize(void);
 FAR struct spi_dev_s *am67_spibus_initialize(int port);
 void am67_mcspi_board_select(FAR struct spi_dev_s *dev, uint8_t channel,
                              bool selected);
+
+/* Number of failed words and status waits since the last call, then reset
+ * to 0. SPI exchange() cannot return an error, so a caller that must not
+ * use a failed transfer reads this after deselecting the device.
+ */
+
+int am67_mcspi_take_errors(FAR struct spi_dev_s *dev);
+
+/* Time spent in the driver, in R5F cycles (PMU cycle counter). For
+ * diagnostics; the fields are updated under the bus lock and read without
+ * it, so one sample can be torn.
+ */
+
+struct am67_mcspi_stats_s
+{
+  uint32_t transfers;        /* select/deselect pairs */
+  uint32_t words;            /* words shifted by exchange()/send() */
+  uint64_t xfer_cycles;      /* exchange()/send() */
+  uint64_t select_cycles;    /* select + deselect, incl. the EOT wait */
+  uint64_t config_cycles;    /* setfrequency/setmode/setbits */
+  uint32_t max_xfer_cycles;  /* longest single exchange() */
+  uint32_t max_xfer_words;   /* its length */
+  uint32_t fifo_stalls;      /* FIFO transfers with no progress */
+  uint32_t eot_timeouts;     /* EOT not seen after a FIFO transfer */
+  uint32_t fail_stat;        /* CHSTAT at the last failure */
+  uint32_t fail_rx;          /* words received before it */
+  uint32_t irq_xfers;        /* FIFO transfers completed by the interrupt */
+  uint32_t irq_timeouts;     /* interrupt-driven transfers that timed out */
+};
+
+void am67_mcspi_stats(FAR struct spi_dev_s *dev,
+                      FAR struct am67_mcspi_stats_s *stats, bool reset);
+
+#ifdef CONFIG_AM67_FAULT_INJECTION
+/* Make the next count FIFO transfers stall (no words sent, or the
+ * interrupt never enabled), so that they time out. Bench tests only.
+ */
+
+void am67_mcspi_inject_fault(unsigned int count);
+#endif
 
 #endif /* __ARCH_ARM_SRC_AM67_AM67_MCSPI_H */

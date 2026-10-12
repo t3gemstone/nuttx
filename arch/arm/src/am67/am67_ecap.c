@@ -33,6 +33,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <nuttx/panic_notifier.h>
 #include <nuttx/timers/pwm.h>
 
 #include "arm_internal.h"
@@ -84,6 +85,7 @@ struct am67_ecap_s
   uint32_t frequency;       /* Cached running frequency (0 = stopped) */
   uint32_t period;          /* Cached APRD+1 ticks, for the duty math */
   uint8_t pinmux_id;        /* Module number for pad muxing */
+  volatile bool live;       /* setup() done */
 };
 
 /****************************************************************************
@@ -415,16 +417,21 @@ static int am67_ecap_setup(struct pwm_lowerhalf_s *dev)
   struct am67_ecap_s *priv = (struct am67_ecap_s *)dev;
   int ret;
 
-  /* Check the PID before any other register access */
+  /* Check the PID before any other register access. The caller powers
+   * the module first (TISCI); an unpowered or unassigned module reads 0 or
+   * all ones and must fail the open instead of looking healthy while its
+   * output stays silent.
+   */
 
-  // ret = am67_ecap_check_pid(priv->base);
-  // if (ret < 0)
-  //   {
-  //     return ret;
-  //   }
+  ret = am67_ecap_check_pid(priv->base);
+  if (ret < 0)
+    {
+      return ret;
+    }
 
   am67_ecap_pinmux_init(priv->pinmux_id);
 
+  priv->live = true;
   return OK;
 }
 
@@ -621,8 +628,64 @@ static int am67_ecap_ioctl(struct pwm_lowerhalf_s *dev,
  *
  ****************************************************************************/
 
+/****************************************************************************
+ * Name: am67_ecap_emergency_stop
+ *
+ * Description:
+ *   Zero the active and shadow APWM compare of every set-up eCAP, so the
+ *   output stays low from the current period on. Register writes only.
+ *
+ ****************************************************************************/
+
+void am67_ecap_emergency_stop(void)
+{
+  static struct am67_ecap_s *const ecaps[] =
+  {
+#ifdef CONFIG_AM67_ECAP0
+    &g_am67_ecap0,
+#endif
+#ifdef CONFIG_AM67_ECAP1
+    &g_am67_ecap1,
+#endif
+#ifdef CONFIG_AM67_ECAP2
+    &g_am67_ecap2,
+#endif
+  };
+
+  unsigned int i;
+
+  for (i = 0; i < sizeof(ecaps) / sizeof(ecaps[0]); i++)
+    {
+      if (ecaps[i]->live)
+        {
+          am67_ecap_putreg(ecaps[i]->base, AM67_ECAP_CAP2_OFFSET, 0u);
+          am67_ecap_putreg(ecaps[i]->base, AM67_ECAP_CAP4_OFFSET, 0u);
+        }
+    }
+}
+
+static int am67_ecap_panic(FAR struct notifier_block *nb,
+                           unsigned long action, FAR void *data)
+{
+  am67_ecap_emergency_stop();
+  return 0;
+}
+
 int am67_ecap_init(void)
 {
+  static struct notifier_block nb =
+  {
+    .notifier_call = am67_ecap_panic,
+  };
+
+  static bool registered;
+
+  if (!registered)
+    {
+      registered = true;
+      panic_notifier_chain_register(&nb);
+    }
+
   return am67_ecap_enable_register_write();
 }
 

@@ -165,7 +165,7 @@ arm_vectorirq:
 
 	/* Switch to SYS mode */
 
-#ifdef CONFIG_ARMV7R_DECODEFIQ
+#if defined(CONFIG_ARMV7R_DECODEFIQ) && !defined(CONFIG_ARMV7R_FIQ_NMI)
 	cpsid		if, #PSR_MODE_SYS
 #else
 	cpsid		i, #PSR_MODE_SYS
@@ -275,7 +275,7 @@ arm_vectorsvc:
 
 	/* Switch to SYS mode */
 
-#ifdef CONFIG_ARMV7R_DECODEFIQ
+#if defined(CONFIG_ARMV7R_DECODEFIQ) && !defined(CONFIG_ARMV7R_FIQ_NMI)
 	cpsid		if, #PSR_MODE_SYS
 #else
 	cpsid		i, #PSR_MODE_SYS
@@ -386,7 +386,7 @@ arm_vectordata:
 
 	/* Switch to SYS mode */
 
-#ifdef CONFIG_ARMV7R_DECODEFIQ
+#if defined(CONFIG_ARMV7R_DECODEFIQ) && !defined(CONFIG_ARMV7R_FIQ_NMI)
 	cpsid		if, #PSR_MODE_SYS
 #else
 	cpsid		i, #PSR_MODE_SYS
@@ -475,7 +475,11 @@ arm_vectorprefetch:
 	sub		lr, lr, #4
 	srsdb		sp!, #PSR_MODE_SYS
 
+#ifdef CONFIG_ARMV7R_FIQ_NMI
+	cpsid		i, #PSR_MODE_SYS		/* Switch to SYS mode */
+#else
 	cpsid		if, #PSR_MODE_SYS		/* Switch to SYS mode */
+#endif
 
 	/* Create a context structure.  First set aside a stack frame
 	 * and store r0-r12 into the frame.
@@ -557,7 +561,11 @@ arm_vectorundefinsn:
 
 	srsdb		sp!, #PSR_MODE_SYS
 
+#ifdef CONFIG_ARMV7R_FIQ_NMI
+	cpsid		i, #PSR_MODE_SYS		/* Switch to SYS mode */
+#else
 	cpsid		if, #PSR_MODE_SYS		/* Switch to SYS mode */
+#endif
 
 	/* Create a context structure.  First set aside a stack frame
 	 * and store r0-r12 into the frame.

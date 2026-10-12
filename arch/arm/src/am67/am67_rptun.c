@@ -27,21 +27,33 @@
 
 #include <nuttx/config.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <debug.h>
+#include <syslog.h>
 
 #include <arch/barriers.h>
 
 #include <nuttx/arch.h>
 #include <nuttx/irq.h>
 #include <nuttx/kmalloc.h>
+#include <nuttx/kthread.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/nuttx.h>
 #include <nuttx/rptun/rptun.h>
 #include <nuttx/wqueue.h>
 
 #include "am67_rptun.h"
 #include "arm_internal.h"
+
+#if defined(CONFIG_AM67_EPWM0) || defined(CONFIG_AM67_EPWM1)
+#  include "am67_pwm.h"
+#endif
+#if defined(CONFIG_AM67_ECAP0) || defined(CONFIG_AM67_ECAP1) || \
+    defined(CONFIG_AM67_ECAP2)
+#  include "am67_ecap.h"
+#endif
 
 #ifdef CONFIG_RPTUN
 
@@ -103,6 +115,18 @@
 #define AM67_MBOX_EOI              (AM67_MBOX_BASE + 0x140u)
 #define AM67_MBOX_NEW_MSG_INT(n)   (1u << ((n) * 2u))
 
+/* Control messages of the TI remoteproc mailbox protocol (Linux
+ * drivers/remoteproc/omap_remoteproc.h). Anything below RP_MBOX_READY is a
+ * virtqueue id.
+ */
+
+#define RP_MBOX_READY              0xffffff00u
+#define RP_MBOX_CRASH              0xffffff02u
+#define RP_MBOX_ECHO_REQUEST       0xffffff03u
+#define RP_MBOX_ECHO_REPLY         0xffffff04u
+#define RP_MBOX_SHUTDOWN           0xffffff14u
+#define RP_MBOX_SHUTDOWN_ACK       0xffffff15u
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -131,6 +155,7 @@ static bool am67_rptun_is_master(struct rptun_dev_s *dev);
 static int am67_rptun_start(struct rptun_dev_s *dev);
 static int am67_rptun_stop(struct rptun_dev_s *dev);
 static int am67_rptun_notify(struct rptun_dev_s *dev, uint32_t vqid);
+static void am67_rptun_panic(struct rptun_dev_s *dev);
 static int am67_rptun_register_callback(struct rptun_dev_s *dev,
                                         rptun_callback_t callback,
                                         void *arg);
@@ -152,9 +177,29 @@ static const struct rptun_ops_s g_am67_rptun_ops =
   .stop              = am67_rptun_stop,
   .notify            = am67_rptun_notify,
   .register_callback = am67_rptun_register_callback,
+  .panic             = am67_rptun_panic,
 };
 
 static struct am67_rptun_dev_s g_am67_rptun_dev;
+
+/* Set while PX4 must not be stopped (armed); see am67_rptun_set_lockout() */
+
+static volatile bool g_am67_rptun_lockout;
+
+/* The mailbox interrupt posts it; am67_rptun_stopper() handles the request */
+
+static sem_t g_am67_rptun_stopsem = SEM_INITIALIZER(0);
+
+/* What woke the halted core, for Linux to read (ATCM, not cached;
+ * scripts/kart/r5f-inspect.sh halt): [0] magic "HALT", [1] WFI wake-ups,
+ * [2] VIM PRIIRQ, [3] VIM PRIFIQ at the last wake-up, [4] first VIM group
+ * with a raw pending input, [5] its raw bits, [6] CPSR.
+ */
+
+#define AM67_HALT_MAGIC  0x544c4148u   /* "HALT" */
+#define VIM_BASE         0x2fff0000u
+
+locate_data(".am67_fastdata") volatile uint32_t g_am67_halt_diag[8];
 
 /****************************************************************************
  * Private Functions
@@ -230,6 +275,18 @@ static int am67_rptun_notify(struct rptun_dev_s *dev, uint32_t vqid)
   return 0;
 }
 
+/* A panic must not wait for Linux.  Without this op rptun_dev_panic() sends
+ * RPTUN_CMD_PANIC through the resource table and polls up to
+ * CONFIG_RPTUN_CMD_TIMEOUT_MS (5 s) for an ACK that Linux remoteproc never
+ * gives; the watchdog fired first.  Tell nobody: the log survives in DDR
+ * and the board code resets the SoC.
+ */
+
+static void am67_rptun_panic(struct rptun_dev_s *dev)
+{
+  UNUSED(dev);
+}
+
 static int am67_rptun_register_callback(struct rptun_dev_s *dev,
                                         rptun_callback_t callback,
                                         void *arg)
@@ -280,6 +337,99 @@ static void am67_rptun_notify_work(void *arg)
 }
 
 /****************************************************************************
+ * Name: am67_rptun_shutdown
+ *
+ * Description:
+ *   Linux `echo stop > /sys/class/remoteproc/.../state` sends
+ *   RP_MBOX_SHUTDOWN and waits 5 s for RP_MBOX_SHUTDOWN_ACK, then 2 ms for
+ *   the core to sit in WFI before it halts it.  While the vehicle is armed
+ *   no ACK is sent: Linux gives up with -EBUSY and the autopilot keeps
+ *   flying.  Otherwise the motor outputs are cut first, then the ACK is
+ *   sent and the core parks in WFI with every interrupt source masked at
+ *   the VIM, since a pending interrupt would wake WFI even with CPSR.I set.
+ *
+ *   Runs in its own highest-priority thread (am67_rptun_stopper()), not in
+ *   a work queue: a blocked work queue (PX4 runs its reboot through
+ *   HPWORK) must not keep Linux from stopping the core.  Not from the
+ *   interrupt either: parked from interrupt context, WFI did not hold
+ *   (REHBER 5.23).
+ *
+ ****************************************************************************/
+
+static void am67_rptun_shutdown(void)
+{
+  int irq;
+
+  if (g_am67_rptun_lockout)
+    {
+      syslog(LOG_WARNING, "rptun: shutdown refused, vehicle armed\n");
+      return;
+    }
+
+  syslog(LOG_WARNING, "rptun: shutdown, motor outputs off, halting\n");
+
+  up_irq_save();
+
+#if defined(CONFIG_AM67_EPWM0) || defined(CONFIG_AM67_EPWM1)
+  am67_epwm_emergency_stop();
+#endif
+#if defined(CONFIG_AM67_ECAP0) || defined(CONFIG_AM67_ECAP1) || \
+    defined(CONFIG_AM67_ECAP2)
+  am67_ecap_emergency_stop();
+#endif
+
+  for (irq = 0; irq < NR_IRQS; irq++)
+    {
+      up_disable_irq(irq);
+    }
+
+  g_am67_halt_diag[1] = 0;
+  g_am67_halt_diag[0] = AM67_HALT_MAGIC;
+
+  putreg32(RP_MBOX_SHUTDOWN_ACK, AM67_MBOX_MESSAGE(AM67_MBOX_TX_FIFO));
+  UP_DSB();
+
+  for (; ; )
+    {
+      uint32_t cpsr;
+      int g;
+
+      asm volatile ("wfi");
+
+      /* Linux wants the core to stay in WFI: record why it did not */
+
+      g_am67_halt_diag[1]++;
+      g_am67_halt_diag[2] = getreg32(VIM_BASE + 0x08);
+      g_am67_halt_diag[3] = getreg32(VIM_BASE + 0x0c);
+      for (g = 0; g < 16; g++)
+        {
+          uint32_t raw = getreg32(VIM_BASE + 0x400 + g * 0x20);
+
+          if (raw != 0)
+            {
+              g_am67_halt_diag[4] = g;
+              g_am67_halt_diag[5] = raw;
+              break;
+            }
+        }
+
+      asm volatile ("mrs %0, cpsr" : "=r" (cpsr));
+      g_am67_halt_diag[6] = cpsr;
+    }
+}
+
+static int am67_rptun_stopper(int argc, char *argv[])
+{
+  for (; ; )
+    {
+      nxsem_wait_uninterruptible(&g_am67_rptun_stopsem);
+      am67_rptun_shutdown();                /* returns only if locked */
+    }
+
+  return 0;
+}
+
+/****************************************************************************
  * Name: am67_rptun_interrupt
  *
  * Description:
@@ -293,14 +443,26 @@ static void am67_rptun_notify_work(void *arg)
 static int am67_rptun_interrupt(int irq, void *context, void *arg)
 {
   struct am67_rptun_dev_s *priv = (struct am67_rptun_dev_s *)arg;
+  bool shutdown = false;
 
   /* Drain all messages Linux wrote into FIFO 1.  Each read pops one
-   * entry; stop when MSG_STATUS reports 0 pending messages.
+   * entry; stop when MSG_STATUS reports 0 pending messages.  Virtqueue
+   * kicks all collapse into one RPTUN_NOTIFY_ALL pass below; control
+   * messages are handled here.
    */
 
   while (getreg32(AM67_MBOX_MSG_STATUS(AM67_MBOX_RX_FIFO)) != 0)
     {
-      (void)getreg32(AM67_MBOX_MESSAGE(AM67_MBOX_RX_FIFO));
+      uint32_t msg = getreg32(AM67_MBOX_MESSAGE(AM67_MBOX_RX_FIFO));
+
+      if (msg == RP_MBOX_ECHO_REQUEST)
+        {
+          am67_rptun_notify(&priv->rptun, RP_MBOX_ECHO_REPLY);
+        }
+      else if (msg == RP_MBOX_SHUTDOWN)
+        {
+          shutdown = true;
+        }
     }
 
   /* Clear the new-message interrupt status for user-3 / FIFO-1.
@@ -323,12 +485,42 @@ static int am67_rptun_interrupt(int irq, void *context, void *arg)
       work_queue(HPWORK, &priv->work, am67_rptun_notify_work, priv, 0);
     }
 
+  if (shutdown)
+    {
+      nxsem_post(&g_am67_rptun_stopsem);
+    }
+
   return OK;
 }
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: am67_rptun_set_lockout
+ ****************************************************************************/
+
+void am67_rptun_set_lockout(bool locked)
+{
+  g_am67_rptun_lockout = locked;
+}
+
+/****************************************************************************
+ * Name: am67_rptun_request_restart
+ ****************************************************************************/
+
+void am67_rptun_request_restart(void)
+{
+  /* Linux logs "K3 R5F rproc <name> crashed" (ti_k3_common.c), nothing
+   * more; gem-r5f-restart.service reacts to that line with remoteproc
+   * stop/start.  The stop still goes through the shutdown handshake, so a
+   * locked (armed) core refuses it.
+   */
+
+  putreg32(RP_MBOX_CRASH, AM67_MBOX_MESSAGE(AM67_MBOX_TX_FIFO));
+  UP_DSB();
+}
 
 /****************************************************************************
  * Name: am67_rptun_init
@@ -352,6 +544,14 @@ int am67_rptun_init(void)
            AM67_MBOX_IRQDISABLE(AM67_MBOX_USER));
   putreg32(AM67_MBOX_NEW_MSG_INT(AM67_MBOX_RX_FIFO),
            AM67_MBOX_IRQSTATUS(AM67_MBOX_USER));
+
+  ret = kthread_create("rptun_stop", SCHED_PRIORITY_MAX, 2048,
+                       am67_rptun_stopper, NULL);
+  if (ret < 0)
+    {
+      ipcerr("ERROR: rptun_stop thread: %d\n", ret);
+      return ret;
+    }
 
   ret = irq_attach(AM67_RPTUN_IRQ_EVENT, am67_rptun_interrupt, dev);
   if (ret < 0)

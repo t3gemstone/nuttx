@@ -170,6 +170,8 @@ static bool    mmcsd_wrprotected(FAR struct mmcsd_state_s *priv);
 static int     mmcsd_eventwait(FAR struct mmcsd_state_s *priv,
                                sdio_eventset_t failevents);
 static int     mmcsd_transferready(FAR struct mmcsd_state_s *priv);
+static void    mmcsd_abort_transfer(FAR struct mmcsd_state_s *priv,
+                                    bool write);
 #if MMCSD_MULTIBLOCK_LIMIT != 1
 static int     mmcsd_stoptransmission(FAR struct mmcsd_state_s *priv);
 #endif
@@ -1426,6 +1428,42 @@ static int mmcsd_transferready(FAR struct mmcsd_state_s *priv)
 }
 
 /****************************************************************************
+ * Name: mmcsd_abort_transfer
+ *
+ * Description:
+ *   A data transfer failed part way. The card may still be sending (read)
+ *   or waiting for more data (write); in that state it takes no other data
+ *   command, so every later access failed until a restart. If the card is
+ *   not back in the transfer state (or its state cannot be read), send
+ *   STOP_TRANSMISSION, for SD and MMC alike. After a write, make the next
+ *   access wait until the card has finished programming.
+ *
+ ****************************************************************************/
+
+static void mmcsd_abort_transfer(FAR struct mmcsd_state_s *priv, bool write)
+{
+  uint32_t r1 = 0;
+  int ret;
+
+  ret = mmcsd_get_r1(priv, &r1);
+  if (ret != OK || IS_STATE(r1, MMCSD_R1_STATE_DATA) ||
+      IS_STATE(r1, MMCSD_R1_STATE_RCV))
+    {
+      mmcsd_sendcmdpoll(priv, MMCSD_CMD12, 0);
+      ret = mmcsd_recv_r1(priv, MMCSD_CMD12);
+      if (ret != OK)
+        {
+          ferr("ERROR: CMD12 after a failed transfer: %d\n", ret);
+        }
+    }
+
+  if (write)
+    {
+      priv->wrbusy = true;
+    }
+}
+
+/****************************************************************************
  * Name: mmcsd_stoptransmission
  *
  * Description:
@@ -1657,6 +1695,7 @@ static ssize_t mmcsd_readsingle(FAR struct mmcsd_part_s *part,
   if (ret != OK)
     {
       ferr("ERROR: CMD17 transfer failed: %d\n", ret);
+      mmcsd_abort_transfer(priv, false);
       return ret;
     }
 
@@ -1824,6 +1863,7 @@ static ssize_t mmcsd_readmultiple(FAR struct mmcsd_part_s *part,
   if (ret != OK)
     {
       ferr("ERROR: CMD18 transfer failed: %d\n", ret);
+      mmcsd_abort_transfer(priv, false);
       return ret;
     }
 
@@ -2009,6 +2049,7 @@ static ssize_t mmcsd_writesingle(FAR struct mmcsd_part_s *part,
   if (ret != OK)
     {
       ferr("ERROR: CMD24 transfer failed: %d\n", ret);
+      mmcsd_abort_transfer(priv, true);
       return ret;
     }
 
@@ -2291,6 +2332,7 @@ static ssize_t mmcsd_writemultiple(FAR struct mmcsd_part_s *part,
     {
       if (evret != OK)
         {
+          mmcsd_abort_transfer(priv, true);
           return evret;
         }
     }

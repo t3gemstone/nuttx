@@ -26,6 +26,9 @@
 
 #include <nuttx/config.h>
 
+#include <debug.h>
+#include <inttypes.h>
+
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
@@ -558,6 +561,15 @@ uint32_t *arm_syscall(uint32_t *regs)
    */
 
   (*running_task)->xcp.regs = NULL;
+
+  /* See arm_doirq(): a NULL context would be loaded from address 0 */
+
+  if (regs == NULL)
+    {
+      _alert("NULL context: syscall %" PRIu32 " returning to %s (pid %d)\n",
+             cmd, (*running_task)->name, (*running_task)->pid);
+      PANIC();
+    }
 
   /* Return the last value of curent_regs.  This supports context switches
    * on return from the exception.  That capability is only used with the

@@ -139,9 +139,19 @@ static void uart_rpmsg_raw_dmasend(FAR struct uart_dev_s *dev)
   uint32_t space;
   int ret;
 
-  buf = rpmsg_get_tx_payload_buffer(&priv->ept, &space, true);
+  /* Never wait for a buffer.  With wait == true OpenAMP polls for 15 s and
+   * then asserts, so a host that stops reading (Linux tearing the virtio
+   * devices down on a remoteproc stop, a hung kernel) would crash the
+   * writer.  When no buffer is free the host is not reading: drop what is
+   * pending, as a serial line with nobody listening would, so the writer
+   * never blocks and new data flows again once the host reads.
+   */
+
+  buf = rpmsg_get_tx_payload_buffer(&priv->ept, &space, false);
   if (!buf)
     {
+      dev->dmatx.nbytes = len;
+      uart_xmitchars_done(dev);
       return;
     }
 

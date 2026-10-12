@@ -71,6 +71,15 @@
 /* CC module */
 
 #define AM67_EPWM_CMPCTL_OFFSET         0x00e
+#define AM67_EPWM_TZCTL_OFFSET          0x028   /* trip action, 2 = low  */
+#define AM67_EPWM_TZCLR_OFFSET          0x02e   /* write 1 to clear      */
+#define AM67_EPWM_TZFRC_OFFSET          0x030   /* write 1 to force trip */
+
+#define AM67_EPWM_TZCTL_TZA_LOW         (2u << 0)
+#define AM67_EPWM_TZCTL_TZB_LOW         (2u << 2)
+#define AM67_EPWM_TZ_INT                (1u << 0)
+#define AM67_EPWM_TZ_CBC                (1u << 1)
+#define AM67_EPWM_TZ_OST                (1u << 2)
 #define AM67_EPWM_CMPA_OFFSET           0x012
 #define AM67_EPWM_CMPB_OFFSET           0x014
 
@@ -80,6 +89,17 @@
 #define AM67_EPWM_AQCTLB_OFFSET         0x018
 #define AM67_EPWM_AQSFRC_OFFSET         0x01a
 #define AM67_EPWM_AQCSFRC_OFFSET        0x01c
+
+/* Event trigger (used by DShot: interrupt at CTR = 0) */
+
+#define AM67_EPWM_ETSEL_OFFSET          0x032
+#define AM67_EPWM_ETPS_OFFSET           0x034
+#define AM67_EPWM_ETFLG_OFFSET          0x036
+#define AM67_EPWM_ETCLR_OFFSET          0x038
+#define AM67_EPWM_ETSEL_INTSEL_ZERO     (1u << 0)   /* event at CTR = 0 */
+#define AM67_EPWM_ETSEL_INTEN           (1u << 3)
+#define AM67_EPWM_ETPS_INTPRD_1         (1u << 0)   /* every event */
+#define AM67_EPWM_ET_INT                (1u << 0)
 
 /* Register bit field definitions *******************************************/
 
@@ -118,6 +138,8 @@
 
 #define AM67_EPWM_AQCTLA_ZRO_SHIFT                      (0)
 #define AM67_EPWM_AQCTLA_ZRO_MASK                       (3u << 0)
+#define AM67_EPWM_AQCTLA_PRD_SHIFT                      (2)
+#define AM67_EPWM_AQCTLA_PRD_MASK                       (3u << 2)
 #define AM67_EPWM_AQCTLA_CAU_SHIFT                      (4)
 #define AM67_EPWM_AQCTLA_CAU_MASK                       (3u << 4)
 
@@ -127,6 +149,8 @@
 
 #define AM67_EPWM_AQCTLB_ZRO_SHIFT                      (0)
 #define AM67_EPWM_AQCTLB_ZRO_MASK                       (3u << 0)
+#define AM67_EPWM_AQCTLB_PRD_SHIFT                      (2)
+#define AM67_EPWM_AQCTLB_PRD_MASK                       (3u << 2)
 #define AM67_EPWM_AQCTLB_CBU_SHIFT                      (8)
 #define AM67_EPWM_AQCTLB_CBU_MASK                       (3u << 8)
 
@@ -141,6 +165,7 @@
 #define AM67_EPWM_AQCSFRC_CSFB_MASK                     (3u << 2)
 #define AM67_EPWM_AQSFRC_RLDCSF_SHIFT                   (6)
 #define AM67_EPWM_AQSFRC_RLDCSF_MASK                    (3u << 6)
+#define AM67_EPWM_AQSFRC_RLDCSF_PERIOD                  (1)
 #define AM67_EPWM_AQSFRC_RLDCSF_IMMEDIATE               (3)
 
 #endif /* __ARCH_ARM_SRC_AM67_AM67_PWM_HW_H */

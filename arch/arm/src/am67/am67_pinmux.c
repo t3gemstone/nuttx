@@ -50,15 +50,20 @@ static struct pinmux_conf_s g_am67_pinmux_conf[] =
     (PIN_MODE(2) | PIN_PULL_DISABLE)
   },
 
-#if 0  /* console bisect: MAIN6 UART pads disabled */
-  /* UART-MAIN6 RX */
+#ifdef CONFIG_16550_UART1
+  /* MAIN_UART6 (NuttX 16550 UART1, /dev/ttyS1): GPS on HAT 7/11.
+   * RX is pulled up so an unplugged GPS reads as an idle line instead of
+   * floating into framing errors.
+   */
+
+  /* UART6_RXD -> GPMC0_WAIT1 (W26), HAT 7 */
 
   {
     PIN_GPMC0_WAIT1,
-    (PIN_MODE(3) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+    (PIN_MODE(3) | PIN_INPUT_ENABLE | PIN_PULL_DIRECTION)
   },
 
-  /* UART-MAIN6 TX */
+  /* UART6_TXD -> MCASP0_AXR2 (A26), HAT 11 */
 
   {
     PIN_MCASP0_AXR2,
@@ -205,18 +210,23 @@ static struct pinmux_conf_s g_am67_mcu_spi_pinmux_conf[] =
 static struct pinmux_conf_s g_am67_mcu_i2c_pinmux_conf[] =
 {
 #ifdef CONFIG_AM67_I2C0
-  /* MCU_I2C0_SCL */
+  /* MCU_I2C0 goes to HAT 3 (SDA) and HAT 5 (SCL) with no pull-ups on the
+   * board. Use the pad pull-ups, as Linux does, so an empty header reads
+   * as an idle bus; a module's own pull-ups add to them.
+   */
+
+  /* MCU_I2C0_SCL (B13), HAT 5 */
 
   {
     PIN_MCU_I2C0_SCL,
-    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DIRECTION)
   },
 
-  /* MCU_I2C0_SDA */
+  /* MCU_I2C0_SDA (E11), HAT 3 */
 
   {
     PIN_MCU_I2C0_SDA,
-    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DISABLE)
+    (PIN_MODE(0) | PIN_INPUT_ENABLE | PIN_PULL_DIRECTION)
   },
 #endif
 

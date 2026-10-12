@@ -46,6 +46,7 @@ CHIP_CSRCS += am67_mpuinit.c
 CHIP_CSRCS += am67_pinmux.c
 CHIP_CSRCS += am67_serial.c
 CHIP_CSRCS += am67_timer.c
+CHIP_CSRCS += am67_tisci.c
 ifeq ($(CONFIG_AM67_GPIO),y)
 CHIP_CSRCS += am67_gpio.c
 endif
@@ -63,5 +64,16 @@ CHIP_CSRCS += am67_i2c.c
 endif
 ifeq ($(CONFIG_RPTUN),y)
 CHIP_CSRCS += am67_rptun.c
+endif
+ifeq ($(CONFIG_AM67_RTI8_WDT),y)
+CHIP_CSRCS += am67_rti.c
+endif
+ifeq ($(CONFIG_AM67_DSHOT),y)
+CHIP_CSRCS += am67_dshot.c
+CHIP_ASRCS += am67_dshot_fiq.S
+endif
+
+ifeq ($(CONFIG_AM67_SDHCI0),y)
+CHIP_CSRCS += am67_sdhci.c
 endif
 CHIP_CSRCS += am67_rat.c

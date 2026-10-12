@@ -313,12 +313,17 @@ uint32_t *arm_decodeirq(uint32_t *regs)
 
   (void)intr_get_irq_vec_addr();
 
+  /* A spurious entry (no valid active interrupt) has no pending status to
+   * clear: clearing "interrupt 0" could drop a real pending interrupt 0.
+   * The VIM is still acknowledged.
+   */
+
   if (intr_get_irq(&intr_num) == 0)
     {
       regs = arm_doirq(intr_num, regs);
+      intr_clear_irq(intr_num);
     }
 
-  intr_clear_irq(intr_num);
   intr_ack_irq(intr_num);
 
   return regs;

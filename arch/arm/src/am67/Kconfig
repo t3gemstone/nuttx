@@ -91,6 +91,92 @@ config AM67_MCSPI0_FCLK
 
 endif
 
+config AM67_RESET_ON_FATAL
+	bool "Reset the SoC after a watchdog expiry or fatal error"
+	default n
+	depends on AM67_RTI8_WDT
+	---help---
+		After cutting the motor outputs, the watchdog FIQ handler (and
+		board code on a fatal error) ask the DM for a SoC reset
+		(TISCI SYS_RESET) instead of halting the core: the core restarts
+		through U-Boot without waiting for Linux or a power cycle.  The
+		watchdog record (g_am67_wdt_fiq_info) goes to section
+		.am67_noinit, which the board linker script must place in DDR
+		outside every loaded segment, so it survives the reset and is
+		reported at the next start.
+
+config AM67_DDR_READ_ORDERID
+	int "MAIN R5F DDR read order ID (QoS)"
+	default 0
+	range 0 15
+	---help---
+		Order ID of this core's reads in its QoS endpoint
+		(PULSAR_UL_MAIN_0_CPU0_RMST channel 0); 0 keeps the reset value.
+		Order IDs 8-15 take the DDR controller's high-priority path, as
+		U-Boot sets for the display (15). With Linux loading DDR on all
+		four A53 cores, 15 gave the PX4 core 2.7 points more idle time
+		and about 12 us less control latency on the T3 Gemstone O1.
+
+config AM67_TICK_TIMER
+	int "MAIN DMTimer instance for the system tick"
+	default 0
+	range 0 2
+	---help---
+		MAIN DMTimer that drives the NuttX system tick (0: 0x02400000,
+		IRQ 24; 1: IRQ 25; 2: 0x02420000, IRQ 26). U-Boot uses DMTimer0
+		as its own tick, so a core that U-Boot starts before Linux must
+		not use 0. The timer is powered through TISCI before use.
+
+config AM67_RPTUN_NET_VDEV
+	bool "Resource table: virtio-net vdev next to RPMsg"
+	default y
+	depends on RPTUN
+	---help---
+		List a virtio-net vdev (for vhost-net) in the resource table.
+		Without it the table holds only the RPMsg vdev, and every entry
+		Linux has to parse lies within the 256 bytes it reads when it
+		attaches to a core that is already running (IPC-only mode).
+
+config AM67_RTI8_WDT
+	bool "AM67 RTI8 watchdog for MAIN R5F core 0 (FIQ motor cut)"
+	default n
+	select ARMV7R_DECODEFIQ
+	select ARMV7R_FIQ_NMI
+	---help---
+		RTI8 windowed watchdog with an NMI reaction routed as FIQ. The
+		FIQ handler cuts the EPWM/eCAP outputs, records the hung context
+		in g_am67_wdt_fiq_info and halts the core. The caller starts and
+		kicks it (am67_rti.h).
+
+config AM67_DSHOT
+	bool "AM67 DShot on the EPWM motor outputs (FIQ bit engine)"
+	default n
+	depends on AM67_EPWM0 && AM67_EPWM1
+	select ARMV7R_DECODEFIQ
+	select ARMV7R_FIQ_NMI
+	---help---
+		DShot150/300/600 on EPWM0 A/B and EPWM1 A/B. Each counter
+		period is one bit with shadowed compares; a FIQ at CTR = 0
+		(EPWM0 event trigger, VIM 36) writes the next bit from ATCM.
+
+config AM67_SDHCI0
+	bool "AM67 MMCSD0 (eMMC) SDIO driver"
+	default n
+	select ARCH_HAVE_SDIO
+	select SDIO_BLOCKSETUP
+	---help---
+		The on-board eMMC on MMCSD0 as an SDIO lower half for
+		drivers/mmcsd: 4-bit, legacy timing at 20 MHz, programmed I/O.
+		Linux must leave sdhci0 disabled.
+
+config AM67_FAULT_INJECTION
+	bool "Driver fault injection for bench tests"
+	default n
+	---help---
+		Lets a test command make MCSPI and SDHCI transfers fail on
+		request, to exercise their error and recovery paths on the bench.
+		Never enable in a flight image.
+
 config AM67_I2C
 	bool "AM67 I2C support"
 	default n

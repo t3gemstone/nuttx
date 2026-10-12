@@ -76,6 +76,13 @@ arm_fpuconfig:
 	orr		r0, r0, #0xf00000
 	mcr		CP15_CPACR(r0)
 
+	/* The CPACR write only takes effect for later instructions after a
+	 * context synchronization; without it the FPEXC access below may
+	 * still see CP10/CP11 disabled and trap as undefined.
+	 */
+
+	isb
+
 	/* Enable access to CP10 and CP11 in CP15.NSACR */
 
 #ifdef CONFIG_ARCH_TRUSTZONE_SECURE

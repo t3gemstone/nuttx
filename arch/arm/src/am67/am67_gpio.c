@@ -26,10 +26,12 @@
 
 #include <nuttx/config.h>
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "am67_gpio.h"
 #include "am67_pinmux.h"
+#include "am67_tisci.h"
 #include "chip.h"
 
 /****************************************************************************
@@ -222,6 +224,26 @@ am67_gpio_t am67_gpio_hat(unsigned int hat_pin)
   return AM67_GPIO_ID_COUNT;
 }
 
+/* Ask the DM for a GPIO module once, before its first register access.
+ * MAIN_GPIO1 is shared with Linux (it holds it exclusively), so there a NAK
+ * with the module on is expected.
+ */
+
+static void am67_gpio_require(uint32_t base)
+{
+  static bool mcu_gpio0_done;
+  static bool main_gpio1_done;
+  bool *done = base == MCU_GPIO0_BASE ? &mcu_gpio0_done : &main_gpio1_done;
+
+  if (!*done)
+    {
+      *done = true;
+      (void)am67_tisci_device_require(base == MCU_GPIO0_BASE ?
+                                      AM67_TISCI_DEV_MCU_GPIO0 :
+                                      AM67_TISCI_DEV_MAIN_GPIO1);
+    }
+}
+
 void am67_configgpio(am67_gpio_t gpio, int pintype)
 {
   const struct am67_gpio_desc_s *desc = am67_gpio_desc(gpio);
@@ -234,6 +256,8 @@ void am67_configgpio(am67_gpio_t gpio, int pintype)
     {
       return;
     }
+
+  am67_gpio_require(desc->base);
 
   if (pintype == GPIO_INPUT)
     {

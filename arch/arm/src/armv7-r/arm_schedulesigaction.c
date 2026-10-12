@@ -109,7 +109,11 @@ void up_schedule_sigaction(struct tcb_s *tcb)
    */
 
   tcb->xcp.regs[REG_PC]    = (uint32_t)arm_sigdeliver;
+#ifdef CONFIG_ARMV7R_FIQ_NMI
+  tcb->xcp.regs[REG_CPSR]  = (PSR_MODE_SYS | PSR_I_BIT);
+#else
   tcb->xcp.regs[REG_CPSR]  = (PSR_MODE_SYS | PSR_I_BIT | PSR_F_BIT);
+#endif
 #ifdef CONFIG_ARM_THUMB
   tcb->xcp.regs[REG_CPSR] |= PSR_T_BIT;
 #endif

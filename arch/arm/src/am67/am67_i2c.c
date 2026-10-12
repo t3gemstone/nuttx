@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <syslog.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
@@ -79,6 +80,11 @@
 #endif
 
 /* Interrupt wait time timeout in system timer ticks */
+
+/* Longest busy wait for the bus to go free before a transfer */
+
+#define AM67_I2C_WAITSTOP_MAX_US   2000
+#define AM67_I2C_WAITSTOP_STEP_US  10
 
 #ifndef CONFIG_AM67_I2CTIMEOTICKS
 #  define CONFIG_AM67_I2CTIMEOTICKS \
@@ -157,6 +163,7 @@ struct am67_trace_s
 struct am67_i2c_config_s
 {
   uint32_t base;              /* I2C base address */
+  uint32_t tisci_dev;         /* TISCI device to power on first, 0 = none */
   uint8_t mode;               /* Master or Slave mode */
 #ifndef CONFIG_I2C_POLLED
   uint32_t irq;               /* Event IRQ */
@@ -247,7 +254,10 @@ static int am67_i2c_isr_process(struct am67_i2c_priv_s *priv);
 static int am67_i2c_isr(int irq, void *context, void *arg);
 #endif /* !CONFIG_I2C_POLLED */
 
+static bool am67_i2c_bus_recover(struct am67_i2c_priv_s *priv);
+static int am67_i2c_hwinit(struct am67_i2c_priv_s *priv);
 static int am67_i2c_init(struct am67_i2c_priv_s *priv);
+int am67_tisci_device_on(uint32_t id);
 static int am67_i2c_deinit(struct am67_i2c_priv_s *priv);
 static int am67_i2c_transfer(struct i2c_master_s *dev,
                                struct i2c_msg_s *msgs, int count);
@@ -285,6 +295,7 @@ static const struct i2c_ops_s am67_i2c_ops =
 static const struct am67_i2c_config_s am67_i2c0_config =
 {
   .base       = AM67_I2C0_VADDR,
+  .tisci_dev  = 106,          /* J722S MCU_I2C0; Linux leaves it off */
 #ifndef CONFIG_I2C_SLAVE
   .mode       = I2C_MASTER,
 #else
@@ -550,32 +561,21 @@ static inline int am67_i2c_sem_waitdone(struct am67_i2c_priv_s *priv)
 static inline bool
 am67_i2c_sem_waitstop(struct am67_i2c_priv_s *priv)
 {
-  clock_t start;
-  clock_t elapsed;
-  clock_t timeout;
+  unsigned int waited_us;
   uint32_t regval;
-
-  /* Select a timeout */
-
-#ifdef CONFIG_AM67_I2C_DYNTIMEO
-  timeout = USEC2TICK(CONFIG_AM67_I2C_DYNTIMEO_STARTSTOP);
-#else
-  timeout = CONFIG_AM67_I2CTIMEOTICKS;
-#endif
 
   /* Wait as stop might still be in progress; but stop might also
    * be set because of a timeout error: "The [STOP] bit is set and
    * cleared by software, cleared by hardware when a Stop condition is
    * detected, set by hardware when a timeout error is detected."
+   *
+   * This is a busy wait on the caller's thread, so keep it short: a STOP
+   * takes about one bit time (10 us at 100 kHz).  It used to spin for the
+   * full transfer timeout (500 ms) on a stuck bus.
    */
 
-  start = clock_systime_ticks();
-  do
+  for (waited_us = 0; ; waited_us += AM67_I2C_WAITSTOP_STEP_US)
     {
-      /* Calculate the elapsed time */
-
-      elapsed = clock_systime_ticks() - start;
-
       /* Check for Bus Free condition */
 
       regval = am67_i2c_getreg(priv, AM67_I2C_IRQ_STAT_RAW_OFFSET);
@@ -583,11 +583,14 @@ am67_i2c_sem_waitstop(struct am67_i2c_priv_s *priv)
         {
           return true;
         }
+
+      if (waited_us >= AM67_I2C_WAITSTOP_MAX_US)
+        {
+          break;
+        }
+
+      up_udelay(AM67_I2C_WAITSTOP_STEP_US);
     }
-
-  /* Loop until the stop is complete or a timeout occurs. */
-
-  while (elapsed < timeout);
 
   /* If we get here then a timeout occurred with the STOP condition
    * still pending.
@@ -1120,8 +1123,84 @@ static int am67_i2c_isr(int irq, void *context, void *arg)
  *
  ****************************************************************************/
 
-static int am67_i2c_init(struct am67_i2c_priv_s *priv)
+/****************************************************************************
+ * Name: am67_i2c_bus_recover
+ *
+ * Description:
+ *   A slave that lost a transfer half way keeps driving SDA low, and the
+ *   bus stays busy until that slave is powered down: every transfer then
+ *   times out.  On the O1 this happens when Linux reboots the SoC while
+ *   the R5F reads the compass (the GPS module stays powered), and could
+ *   happen after a glitch on the wires.  Clock the slave out: up to nine
+ *   SCL pulses until it releases SDA, then a STOP (I2C-bus specification
+ *   3.1.16), through the SYSTEST I/O mode as Linux omap-i2c does.  Call
+ *   with the controller enabled and idle.
+ *
+ * Returned Value:
+ *   true if SDA was held low (and a recovery was attempted).
+ *
+ ****************************************************************************/
+
+static bool am67_i2c_bus_recover(struct am67_i2c_priv_s *priv)
 {
+  uint32_t st = am67_i2c_getreg(priv, AM67_I2C_SYSTEST_OFFSET);
+  uint32_t io;
+  int clocks;
+
+  if ((st & I2C_SYSTEST_SDA_I_FUNC) != 0)
+    {
+      return false;
+    }
+
+  io = (st & ~I2C_SYSTEST_TMODE_MASK) | I2C_SYSTEST_ST_EN |
+       I2C_SYSTEST_TMODE_LOOPBACK;
+  am67_i2c_putreg(priv, AM67_I2C_SYSTEST_OFFSET,
+                  io | I2C_SYSTEST_SCL_O | I2C_SYSTEST_SDA_O);
+  up_udelay(10);
+
+  for (clocks = 0; clocks < 9 &&
+       (am67_i2c_getreg(priv, AM67_I2C_SYSTEST_OFFSET) &
+        I2C_SYSTEST_SDA_I_FUNC) == 0; clocks++)
+    {
+      am67_i2c_putreg(priv, AM67_I2C_SYSTEST_OFFSET,
+                      io | I2C_SYSTEST_SDA_O);
+      up_udelay(5);
+      am67_i2c_putreg(priv, AM67_I2C_SYSTEST_OFFSET,
+                      io | I2C_SYSTEST_SCL_O | I2C_SYSTEST_SDA_O);
+      up_udelay(5);
+    }
+
+  /* Try a STOP (SDA rising while SCL is high); the controller may not
+   * drive SDA in this mode, am67_i2c_init() resets it afterwards anyway.
+   */
+
+  am67_i2c_putreg(priv, AM67_I2C_SYSTEST_OFFSET, io | I2C_SYSTEST_SCL_O);
+  up_udelay(5);
+  am67_i2c_putreg(priv, AM67_I2C_SYSTEST_OFFSET,
+                  io | I2C_SYSTEST_SCL_O | I2C_SYSTEST_SDA_O);
+  up_udelay(5);
+  am67_i2c_putreg(priv, AM67_I2C_SYSTEST_OFFSET,
+                  st & ~(I2C_SYSTEST_ST_EN | I2C_SYSTEST_TMODE_MASK));
+
+  syslog(LOG_WARNING, "[i2c] 0x%08" PRIx32 ": SDA held low, %d clock(s), "
+         "bus %s\n", priv->config->base, clocks,
+         (am67_i2c_getreg(priv, AM67_I2C_SYSTEST_OFFSET) &
+          I2C_SYSTEST_SDA_I_FUNC) != 0 ? "free" : "still stuck");
+  return true;
+}
+
+static int am67_i2c_hwinit(struct am67_i2c_priv_s *priv)
+{
+  unsigned int spins;
+
+  /* A module nobody powered reads as zero and never reports RST_DONE. */
+
+  if (priv->config->tisci_dev != 0 &&
+      am67_tisci_device_on(priv->config->tisci_dev) < 0)
+    {
+      return -ENODEV;
+    }
+
   /* Configure pins */
 
   am67_i2c_pinmux_init();
@@ -1140,9 +1219,15 @@ static int am67_i2c_init(struct am67_i2c_priv_s *priv)
 
   am67_i2c_modifyreg(priv, AM67_I2C_CON_OFFSET, 0, I2C_CON_EN);
 
-  while (!(am67_i2c_getreg(priv, AM67_I2C_SYSS_OFFSET) &
-           I2C_SYSS_RST_DONE))
+  for (spins = 0; !(am67_i2c_getreg(priv, AM67_I2C_SYSS_OFFSET) &
+                    I2C_SYSS_RST_DONE); spins++)
     {
+      if (spins > 100000)
+        {
+          i2cerr("ERROR: I2C 0x%08" PRIx32 " reset timeout\n",
+                 priv->config->base);
+          return -ETIMEDOUT;
+        }
     }
 
   /* No-idle mode + keep both clocks active so the WKUP domain power
@@ -1191,6 +1276,31 @@ static int am67_i2c_init(struct am67_i2c_priv_s *priv)
 }
 
 /****************************************************************************
+ * Name: am67_i2c_init
+ *
+ * Description:
+ *   Bring the controller up.  Every (re)initialisation runs after a boot or
+ *   a failed transfer: free a bus that a slave is still holding.  Clocking
+ *   the slave out releases SDA, but no STOP appears on the bus (SYSTEST
+ *   cannot drive SDA here), so the controller keeps its bus-busy flag:
+ *   reset it once more.  The next transfer's START then ends what the
+ *   slave was in the middle of.
+ *
+ ****************************************************************************/
+
+static int am67_i2c_init(struct am67_i2c_priv_s *priv)
+{
+  int ret = am67_i2c_hwinit(priv);
+
+  if (ret == OK && am67_i2c_bus_recover(priv))
+    {
+      ret = am67_i2c_hwinit(priv);
+    }
+
+  return ret;
+}
+
+/****************************************************************************
  * Name: am67_i2c_deinit
  *
  * Description:
@@ -1234,6 +1344,7 @@ static int am67_i2c_transfer(struct i2c_master_s *dev,
                                struct i2c_msg_s *msgs, int count)
 {
   struct am67_i2c_priv_s *priv = (struct am67_i2c_priv_s *)dev;
+  bool stopped;
   int ret;
 
   DEBUGASSERT(count > 0);
@@ -1253,14 +1364,30 @@ static int am67_i2c_transfer(struct i2c_master_s *dev,
 
   if (!priv->inited)
     {
-      am67_i2c_init(priv);
+      ret = am67_i2c_init(priv);
+
+      if (ret < 0)
+        {
+          nxmutex_unlock(&priv->lock);
+          return ret;
+        }
+
       priv->inited = true;
     }
 
-  /* Wait for any STOP in progress */
+  /* Wait for any STOP in progress.  A bus that a slave still holds stays
+   * busy: reinitialise, which frees it (am67_i2c_bus_recover()), and wait
+   * once more instead of failing this transfer too.
+   */
 
   ret = -EBUSY;
-  if (am67_i2c_sem_waitstop(priv))
+  stopped = am67_i2c_sem_waitstop(priv);
+  if (!stopped && am67_i2c_init(priv) == OK)
+    {
+      stopped = am67_i2c_sem_waitstop(priv);
+    }
+
+  if (stopped)
     {
       /* Clear TX and RX FIFOs before each transfer.  Stale FIFO data from
        * the previous transfer can cause XRDY/RRDY to fire at unexpected
@@ -1380,6 +1507,16 @@ static int am67_i2c_transfer(struct i2c_master_s *dev,
     {
       i2cerr("ERROR: Bus busy, raw status: 0x%" PRIx32 "\n",
              am67_i2c_getreg(priv, AM67_I2C_IRQ_STAT_RAW_OFFSET));
+    }
+
+  /* A timeout or a bus that stays busy leaves the controller in an unknown
+   * state.  Soft-reset and reconfigure it before the next transfer instead
+   * of failing every transfer that follows.
+   */
+
+  if (ret == -ETIMEDOUT || ret == -EBUSY || ret == -EIO)
+    {
+      priv->inited = false;
     }
 
   nxmutex_unlock(&priv->lock);

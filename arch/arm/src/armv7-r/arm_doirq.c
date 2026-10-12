@@ -30,6 +30,7 @@
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
 #include <assert.h>
+#include <debug.h>
 
 #include <nuttx/board.h>
 #include <arch/board/board.h>
@@ -63,6 +64,23 @@ uint32_t *arm_doirq(int irq, uint32_t *regs)
   if (irq != GIC_SMP_CPUSTART)
 #endif
     {
+      /* The frame belongs to the interrupted task. If the ready list head
+       * already differs from it, the frame is stored in the wrong TCB and
+       * the interrupted task keeps a stale or NULL context (report the
+       * first few; see the NULL check below).
+       */
+
+      static int s_mismatch_reports;
+
+      if (tcb != g_running_tasks[this_cpu()] && s_mismatch_reports < 4)
+        {
+          s_mismatch_reports++;
+          _alert("irq %d entry: this_task %s (pid %d) != running %s\n",
+                 irq, tcb->name, tcb->pid,
+                 g_running_tasks[this_cpu()] != NULL ?
+                 g_running_tasks[this_cpu()]->name : "-");
+        }
+
       tcb->xcp.regs = regs;
     }
 
@@ -90,6 +108,19 @@ uint32_t *arm_doirq(int irq, uint32_t *regs)
 
       *running_task = tcb;
       regs = tcb->xcp.regs;
+
+      /* Returning NULL makes the exception return load the next context
+       * from address 0 (seen once in a 6 h soak on the AM67: undefined
+       * instruction in the idle task with code words in every register).
+       * Stop with a readable report instead.
+       */
+
+      if (regs == NULL)
+        {
+          _alert("NULL context: irq %d switching to %s (pid %d)\n",
+                 irq, tcb->name, tcb->pid);
+          PANIC();
+        }
     }
 
   /* Set irq flag */

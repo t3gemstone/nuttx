@@ -33,6 +33,7 @@
 #include "am67_pinmux.h"
 #include "am67_rptun.h"
 #include "arm.h"
+#include "arm_internal.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -58,8 +59,21 @@
 
 #define FW_RSC_ADDR_ANY     (0xffffffffu)
 
-/* Resource table has 2 entries: vdev[0]=RPMsg, vdev[1]=virtio-net */
-#define NO_RESOURCE_ENTRIES (2)
+/* QoS endpoint of the MAIN R5F reads (K3 QoS: base + 0x100 + 4 * channel;
+ * u-boot arch/arm/mach-k3/r5/j722s/j722s_qos.h)
+ */
+
+#define AM67_QOS_MAIN_R5F_RMST_CH0  (0x45d15000u + 0x100u)
+#define AM67_QOS_ORDERID_SHIFT      (4)
+#define AM67_QOS_ORDERID_MASK       (0xfu << AM67_QOS_ORDERID_SHIFT)
+
+/* Resource table entries: vdev[0]=RPMsg, vdev[1]=virtio-net (optional) */
+
+#ifdef CONFIG_AM67_RPTUN_NET_VDEV
+#  define NO_RESOURCE_ENTRIES (2)
+#else
+#  define NO_RESOURCE_ENTRIES (1)
+#endif
 #define RSC_VDEV_FEATURE_NS (1) /* Support name service announcement */
 #define RSC_TABLE_VERSION   (1)
 
@@ -108,7 +122,9 @@ const struct am67_rsc_s g_am67_rsc_table =
     .offset =
     {
       offsetof(struct am67_rsc_s, base.rpmsg_vdev),
+#ifdef CONFIG_AM67_RPTUN_NET_VDEV
       offsetof(struct am67_rsc_s, net_vdev),
+#endif
     },
 
     .log_trace =
@@ -155,6 +171,7 @@ const struct am67_rsc_s g_am67_rsc_table =
     }
   },
 
+#ifdef CONFIG_AM67_RPTUN_NET_VDEV
   /* virtio-net vdev entry — Linux creates a virtual Ethernet interface
    * backed by standard virtio_net.ko.  NuttX's virtio-net driver
    * (CONFIG_DRIVERS_VIRTIO_NET) handles the R5F side.
@@ -192,6 +209,7 @@ const struct am67_rsc_s g_am67_rsc_table =
     4,               /* notifyid */
     0                /* pa */
   },
+#endif
 };
 
 /****************************************************************************
@@ -231,9 +249,37 @@ void arm_boot(void)
 
   am67_mpu_init();
 
+  /* Enable the VFPv3-D16 before any C code can emit a floating-point
+   * instruction: with CONFIG_ARCH_FPU the whole image is built hard-float.
+   * This must follow am67_mpu_init(): arm_fpuconfig() lives in DDR, and
+   * the linker script keeps everything that runs before the MPU is set up
+   * in ATCM.  Called earlier, the R5F never reached nx_start().
+   */
+
+  arm_fpuconfig();
+
+  /* __start masks FIQ.  Tasks start with FIQ enabled when
+   * ARMV7R_DECODEFIQ is set (arm_initialstate()); unmask it for the idle
+   * context too.  No VIM input is routed as FIQ until the watchdog is armed.
+   */
+
+#ifdef CONFIG_ARMV7R_DECODEFIQ
+  __asm__ __volatile__ ("cpsie f" ::: "memory");
+#endif
+
   /* Do pinmux to get UART early */
 
   am67_pinmux_init();
+
+#if CONFIG_AM67_DDR_READ_ORDERID != 0
+  /* Put this core's DDR reads on the high-priority path, so that a busy
+   * A53 delays the flight code less (CONFIG_AM67_DDR_READ_ORDERID).
+   */
+
+  modifyreg32(AM67_QOS_MAIN_R5F_RMST_CH0, AM67_QOS_ORDERID_MASK,
+              (uint32_t)CONFIG_AM67_DDR_READ_ORDERID <<
+              AM67_QOS_ORDERID_SHIFT);
+#endif
 
   /* Then start NuttX */
 

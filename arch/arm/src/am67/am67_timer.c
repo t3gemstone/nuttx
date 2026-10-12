@@ -29,19 +29,33 @@
 #include <nuttx/spinlock.h>
 #include <nuttx/timers/arch_alarm.h>
 #include <arm_internal.h>
+#include <assert.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdint.h>
+#include <syslog.h>
 #include <time.h>
+
+#include "am67_tisci.h"
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define TIMER0_CLOCK_SRC_MUX_ADDR          (0x1081b0u)
-#define TIMER0_CLOCK_SRC_HFOSC0_CLKOUT     (0x0u)
-#define TIMER0_BASE_ADDR                   (0x2400000u)
+#ifndef CONFIG_AM67_TICK_TIMER
+#  define CONFIG_AM67_TICK_TIMER           0
+#endif
 
-#define AM67_DMTIMER1_1MS_TIMER0_VADDR     (0x2400000)
+/* MAIN DMTimer instances are 0x10000 apart; on R5FSS0_CORE0 DMTimer n
+ * raises interrupt 24 + n (TRM R5FSS0_CORE0 interrupt map) and is TISCI
+ * device 36 + n.
+ */
+
+#define AM67_TICK_TIMER_N                  CONFIG_AM67_TICK_TIMER
+#define AM67_DMTIMER1_1MS_TIMER0_VADDR     (0x2400000u + \
+                                            0x10000u * AM67_TICK_TIMER_N)
+#define AM67_TICK_TIMER_IRQ                (24 + AM67_TICK_TIMER_N)
+#define AM67_TICK_TIMER_TISCI_DEV          AM67_TISCI_DEV_TIMER(AM67_TICK_TIMER_N)
 #define AM67_DMTMR1MS_TIDR_OFFSET          (0x0000) /* Identification Register Section */
 #define AM67_DMTMR1MS_TIOCP_CFG_OFFSET     (0x0010) /* 1ms Timer OCP Configuration Register Section */
 #define AM67_DMTMR1MS_IRQ_EOI_OFFSET       (0x0020) /* 1ms Timer IRQ Wakeup Enable Register */
@@ -74,6 +88,8 @@
 #define TIMER_TCLR                         (0x38u)
 #define TIMER_TCRR                         (0x3cu)
 #define TIMER_TLDR                         (0x40u)
+#define TIMER_TWPS                         (0x48u)
+#define TIMER_TSICR                        (0x54u)
 
 /****************************************************************************
  * Private Types
@@ -173,6 +189,30 @@ static void am67_timer_setup(uint32_t base_addr,
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: am67_timer_nonposted
+ *
+ * Description:
+ *   Leave posted mode (TSICR.POSTED, 1 after reset).  In posted mode a write
+ *   to TCLR/TCRR/TLDR/TTGR/TMAR while an earlier write to the same register
+ *   is still pending is silently dropped, and reading such a register
+ *   returns a stale value; nothing here polls TWPS.  Non-posted writes
+ *   complete before the bus access ends, which costs a few functional clock
+ *   cycles per write.
+ *
+ ****************************************************************************/
+
+static void am67_timer_nonposted(uint32_t base_addr)
+{
+  unsigned int spins = 0;
+
+  while (getreg32(base_addr + TIMER_TWPS) != 0 && ++spins < 100000)
+    {
+    }
+
+  putreg32(0, base_addr + TIMER_TSICR);
+}
 
 /****************************************************************************
  * Name: am67_timer_start
@@ -489,16 +529,45 @@ int up_timer_cancel(struct timespec *ts)
 void up_timer_initialize(void)
 {
   struct timer_params_s params;
+  uint64_t fck_hz = 0;
 
   am67_timer_params_init(&params);
 
-  up_disable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
-  irq_attach(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0,
-             timer_tick_isr, NULL);
+  /* Linux or U-Boot powered DMTimer0 so far; a core that starts before
+   * them must ask the DM itself. An exclusive owner may refuse (NAK);
+   * a timer that is on anyway still works. An unpowered timer would
+   * abort on the first register access: stop here with a clear cause.
+   */
 
+  if (am67_tisci_device_require(AM67_TICK_TIMER_TISCI_DEV) < 0)
+    {
+      PANIC();
+    }
+
+  /* The period is computed from the input clock. Take the rate the DM
+   * reports instead of assuming the reset mux setting (HFOSC0, 25 MHz).
+   */
+
+  if (am67_tisci_get_freq(AM67_TICK_TIMER_TISCI_DEV,
+                          AM67_TISCI_CLK_TIMER_FCK, &fck_hz) == 0 &&
+      fck_hz > 0 && fck_hz <= UINT32_MAX)
+    {
+      if (fck_hz != params.input_clk_hz)
+        {
+          syslog(LOG_WARNING, "tick timer %d: fck %" PRIu64 " Hz\n",
+                 AM67_TICK_TIMER_N, fck_hz);
+        }
+
+      params.input_clk_hz = (uint32_t)fck_hz;
+    }
+
+  up_disable_irq(AM67_TICK_TIMER_IRQ);
+  irq_attach(AM67_TICK_TIMER_IRQ, timer_tick_isr, NULL);
+
+  am67_timer_nonposted(AM67_DMTIMER1_1MS_TIMER0_VADDR);
   am67_timer_stop(AM67_DMTIMER1_1MS_TIMER0_VADDR);
   am67_timer_setup(AM67_DMTIMER1_1MS_TIMER0_VADDR, &params);
   am67_timer_start(AM67_DMTIMER1_1MS_TIMER0_VADDR);
 
-  up_enable_irq(CSLR_R5FSS0_CORE0_INTR_TIMER0_INTR_PEND_0);
+  up_enable_irq(AM67_TICK_TIMER_IRQ);
 }

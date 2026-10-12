@@ -262,11 +262,16 @@ size_t up_check_intstack(int cpu, size_t check_size)
 }
 #endif
 
-/* PX4 compatibility wrappers: return the number of *free* stack bytes. */
+/* PX4 compatibility wrappers: return the number of *free* stack bytes.
+ * up_check_tcbstack() scans check_size bytes and returns 0 for 0 (unlike
+ * up_check_intstack(), which treats 0 as "the whole stack"), so pass the
+ * stack size explicitly.
+ */
 
 size_t up_check_tcbstack_remain(struct tcb_s *tcb)
 {
-  return tcb->adj_stack_size - up_check_tcbstack(tcb, 0);
+  return tcb->adj_stack_size -
+         up_check_tcbstack(tcb, tcb->adj_stack_size);
 }
 
 #if CONFIG_ARCH_INTERRUPTSTACK > 3

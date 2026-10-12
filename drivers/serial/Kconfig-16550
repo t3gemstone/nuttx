@@ -560,6 +560,18 @@ config 16550_WAIT_LCR
 		will trigger spurious interrupts when setting the LCR without
 		waiting.  Default: n
 
+config 16550_TXFULL_SSR
+	bool "TX FIFO full flag in SSR (TI OMAP/K3 UART)"
+	default n
+	---help---
+		On the TI OMAP/K3 UART, LSR[5] is set only when the TX FIFO is
+		empty, while IIR keeps reporting a TX interrupt until the FIFO
+		fills past its trigger level. With LSR[5] as txready() the
+		interrupt handler spins, one character time per pass, for up
+		to 256 passes with interrupts masked. Select this to read
+		SSR[0] TX_FIFO_FULL instead, so each TX interrupt fills the
+		FIFO and returns.
+
 config 16550_SET_MCR_OUT2
 	bool "Set MCR OUT2 bit high"
 	default n

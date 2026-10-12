@@ -193,6 +193,19 @@ config ARMV7R_DECODEFIQ
 		Select this option if your platform supports the function
 		arm_decodefiq().
 
+config ARMV7R_FIQ_NMI
+	bool
+	default n
+	depends on ARMV7R_DECODEFIQ
+	---help---
+		The FIQ is used as a non-maskable interrupt: every FIQ handler
+		either runs on the banked FIQ registers alone or never returns.
+		FIQs then stay enabled while IRQ, SVC and abort exceptions are
+		handled, so FIQ latency no longer depends on the longest IRQ
+		handler, and a hang inside an interrupt handler still takes the
+		FIQ.  Do not select this if arm_decodefiq() returns, since the
+		generic FIQ entry saves its context on the SYS mode stack.
+
 config ARMV7R_ALIGNMENT_TRAP
 	bool "Enable Alignment Check at __start"
 	default n
